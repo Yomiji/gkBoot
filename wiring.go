@@ -22,6 +22,11 @@ import (
 	"github.com/yomiji/gkBoot/service"
 )
 
+// ServiceRequest
+//
+// The request and service provided in this structure are submitted to the Start functions. The requests, when
+// called from the http client, will route to the associated service to execute the business logic of the
+// Execute method.
 type ServiceRequest struct {
 	Request request.HttpRequest
 	Service service.Service
