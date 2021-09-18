@@ -12,8 +12,9 @@ import (
 
 func TestCache(t *testing.T) {
 	cacheService := NewCachableService()
+	notCacheService := NewNotCachableService()
 	runners := tools.NewTestRunner().Test(
-		"Cache Miss", func(subT *testing.T) {
+		"Cache Success", func(subT *testing.T) {
 			// fist unique api call
 			call1 := func() {
 				_, err := tools.CallAPI(
@@ -49,19 +50,12 @@ func TestCache(t *testing.T) {
 				subT.Fatalf("failed, expected 2 cache hits; got: %d\n", cacheService.CacheHitCount.Int64())
 			}
 		},
-	)
-	tools.Harness([]gkBoot.ServiceRequest{{new(CacheableRequest), cacheService}},
-	[]config.GkBootOption{caching.WithCache(new(tools.Cache))}, runners, t)
-}
-
-func TestCacheWithoutOption(t *testing.T) {
-	cacheService := NewCachableService()
-	runners := tools.NewTestRunner().Test(
+	).Test(
 		"Cache Miss", func(subT *testing.T) {
 			// fist unique api call
 			call1 := func() {
 				_, err := tools.CallAPI(
-					http.MethodGet, "http://localhost:8080/cacheable", map[string]string{
+					http.MethodGet, "http://localhost:8080/not_cacheable", map[string]string{
 						"Test-Value-1": "123",
 						"Test-Value-2": "456",
 					}, nil,
@@ -76,7 +70,7 @@ func TestCacheWithoutOption(t *testing.T) {
 			// second unique api call
 			call2 := func() {
 				_, err := tools.CallAPI(
-					http.MethodGet, "http://localhost:8080/cacheable", map[string]string{
+					http.MethodGet, "http://localhost:8080/not_cacheable", map[string]string{
 						"Test-Value-1": "321",
 						"Test-Value-2": "654",
 					}, nil,
@@ -89,11 +83,12 @@ func TestCacheWithoutOption(t *testing.T) {
 			call2()
 			call2()
 			call2()
-			if cacheService.CacheHitCount.Int64() != 5 {
-				subT.Fatalf("failed, expected 5 regular calls; got: %d\n", cacheService.CacheHitCount.Int64())
+			if notCacheService.CacheHitCount.Int64() != 5 {
+				subT.Fatalf("failed, expected 5 regular calls; got: %d\n", notCacheService.CacheHitCount.Int64())
 			}
 		},
 	)
-	tools.Harness([]gkBoot.ServiceRequest{{new(CacheableRequest), cacheService}},
-		[]config.GkBootOption{}, runners, t)
+	tools.Harness([]gkBoot.ServiceRequest{{new(CacheableRequest), cacheService},
+		{new(NotCacheableRequest), notCacheService}},
+	[]config.GkBootOption{caching.WithCache(new(tools.Cache))}, runners, t)
 }

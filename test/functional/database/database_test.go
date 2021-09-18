@@ -35,28 +35,3 @@ func TestDatabaseServicesWithOption(t *testing.T) {
 		}, []config.GkBootOption{config.WithDatabase(&sql.DB{})}, runners, t,
 	)
 }
-
-func TestDatabaseServicesNoOption(t *testing.T) {
-	runners := tools.NewTestRunner().Test(
-		"Database Missing Without Option", func(subT *testing.T) {
-			resp, err := tools.CallAPI(http.MethodGet, "http://localhost:8080/db", nil, nil)
-			if err != nil {
-				subT.Fatalf("failed request: %s", err.Error())
-			}
-			responseBody := resp.Body
-			defer responseBody.Close()
-			bytes, err := ioutil.ReadAll(responseBody)
-			if err != nil {
-				subT.Fatalf("failed to read body: %s", err.Error())
-			}
-			if string(bytes) == "true" {
-				subT.Fatal("failed response")
-			}
-		},
-	)
-	tools.Harness(
-		[]gkBoot.ServiceRequest{
-			{new(DBRequest), new(DBService)},
-		}, nil, runners, t,
-	)
-}
