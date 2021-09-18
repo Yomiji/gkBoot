@@ -27,9 +27,12 @@ func (t TestPassService) Execute(ctx context.Context, request interface{}) (resp
 
 func WrapTestedService(t *testing.T) service.Wrapper {
 	return func(srv service.Service) service.Service {
-		tps := new(TestPassService)
-		tps.t = t
-		tps.next = srv
-		return tps
+		if _,ok := srv.(LogWrappedTarget); ok {
+			tps := new(TestPassService)
+			tps.t = t
+			tps.next = srv
+			return tps
+		}
+		return srv
 	}
 }
