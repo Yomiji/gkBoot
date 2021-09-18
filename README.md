@@ -28,8 +28,8 @@ go get github.com/yomiji/gkBoot@v0.1.0
 
 Users of gkBoot are recommended to follow a pattern when creating their
 microservics. Generally speaking, everything is centered around the
-service wiring (which sits in main.go) and the service files, which sit
-in service:
+service wiring (which sit in main.go) and the service files (which sit
+in the service directory):
 ```text
 ├── go.mod
 ├── go.sum
