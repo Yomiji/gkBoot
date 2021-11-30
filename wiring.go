@@ -31,6 +31,7 @@ type ServiceRequest struct {
 	Request request.HttpRequest
 	Service service.Service
 }
+
 var loggingWrapper service.Wrapper
 
 // Start
@@ -83,19 +84,16 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 	}
 	
 	var err error
-	defer func() {
-		if err != nil {
-			panic(err)
-		}
-	}()
 	var httpPort = 8080
 	if customConfig.HttpPort != nil {
 		httpPort = *customConfig.HttpPort
 	}
+	
 	portString := makePortString(&httpPort)
+	
 	// apply all global decorators
 	var decoratedRouter http.Handler = router
-	for _,decorator := range customConfig.Decorators {
+	for _, decorator := range customConfig.Decorators {
 		decoratedRouter = decorator(decoratedRouter)
 	}
 	srv := &http.Server{Handler: decoratedRouter, Addr: portString}
@@ -115,7 +113,7 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 	}()
 	
 	doneChan := make(chan struct{})
-	go func(){
+	go func() {
 		// blocks until <-errs
 		if customConfig.Logger != nil {
 			level.Error(customConfig.Logger).Log("exit", <-errs)
@@ -135,6 +133,102 @@ func StartServer(serviceRequests []ServiceRequest, option ...config.GkBootOption
 	<-blocker
 }
 
+func MakeHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption) (http.Handler, *config.BootConfig) {
+	customConfig := &config.BootConfig{}
+	for _, opt := range option {
+		opt(customConfig)
+	}
+	if loggingWrapper == nil && customConfig.Logger == nil {
+		logger := log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
+		customConfig.Logger = logger
+	}
+	loggingWrapper = logging.GenerateLoggingWrapper(customConfig.Logger)
+	var router = mux.NewRouter()
+	var useMetrics bool
+	var rootPath = "/"
+	
+	if customConfig.RootPath != nil {
+		rootPath = *customConfig.RootPath
+	}
+	router = router.PathPrefix(rootPath).Subrouter()
+	
+	for _, sr := range serviceRequests {
+		if _, ok := sr.Service.(metrics.Metered); ok {
+			useMetrics = true
+		}
+		router.Methods(string(sr.Request.Info().Method)).
+			Path(sr.Request.Info().Path).
+			Handler(buildHttpRoute(sr, customConfig, customConfig.HttpOpts...))
+	}
+	
+	if useMetrics {
+		var metricsPath = "/metrics"
+		if customConfig.MetricsPath != nil {
+			metricsPath = *customConfig.MetricsPath
+		}
+		router.Handle(
+			metricsPath, promhttp.HandlerFor(
+				prometheus.DefaultGatherer,
+				promhttp.HandlerOpts{
+					// Opt into OpenMetrics to support exemplars.
+					EnableOpenMetrics: customConfig.EnableOpenMetrics,
+				},
+			),
+		)
+	}
+	
+	// apply all global decorators
+	var decoratedRouter http.Handler = router
+	for _, decorator := range customConfig.Decorators {
+		decoratedRouter = decorator(decoratedRouter)
+	}
+	
+	return decoratedRouter, customConfig
+}
+
+func StartWithHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*http.Server, <-chan struct{}) {
+	var err error
+	handler, config := MakeHandler(serviceRequests, option...)
+	
+	var httpPort = 8080
+	if config.HttpPort != nil {
+		httpPort = *config.HttpPort
+	}
+	
+	portString := makePortString(&httpPort)
+	
+	srv := &http.Server{Handler: handler, Addr: portString}
+	
+	errs := make(chan error)
+	go func(srv *http.Server) {
+		err = srv.ListenAndServe()
+		if err != nil {
+			errs <- err
+		}
+	}(srv)
+	
+	go func() {
+		c := make(chan os.Signal)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGALRM)
+		errs <- fmt.Errorf("%s", <-c)
+	}()
+	
+	doneChan := make(chan struct{})
+	go func() {
+		// blocks until <-errs
+		if config.Logger != nil {
+			level.Error(config.Logger).Log("exit", <-errs)
+		}
+		doneChan <- struct{}{}
+	}()
+	return srv, doneChan
+}
+
+func StartServerWithHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption) {
+	_, blocker := StartWithHandler(serviceRequests, option...)
+	<-blocker
+}
+
 func getCustomDecoder(sr ServiceRequest) (httpTransport.DecodeRequestFunc, error) {
 	if customDecoder, ok := sr.Request.(HttpDecoder); ok {
 		return customDecoder.Decode, nil
@@ -150,7 +244,7 @@ func getCustomEncoder(sr ServiceRequest) httpTransport.EncodeResponseFunc {
 }
 
 type serviceBuilder struct {
-	srv service.Service
+	srv    service.Service
 	config *config.BootConfig
 }
 
@@ -175,7 +269,7 @@ func NewServiceBuilder(srv service.Service, option ...config.GkBootOption) *serv
 		opt(nsb.config)
 	}
 	
-	for _,wrapper := range nsb.config.ServiceWrappers {
+	for _, wrapper := range nsb.config.ServiceWrappers {
 		nsb.srv = wrapRootService(nsb.srv, wrapper)
 	}
 	return nsb
@@ -256,7 +350,7 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...httpT
 	var serviceOptions = make([]httpTransport.ServerOption, 0)
 	copy(serviceOptions, opts)
 	
-	if ros,ok := sr.Service.(service.OptionsConfigurable); ok {
+	if ros, ok := sr.Service.(service.OptionsConfigurable); ok {
 		serviceOptions = append(serviceOptions, ros.ServerOptions()...)
 	}
 	
@@ -264,9 +358,9 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...httpT
 		sr.Service = wrapRootService(metered, metrics.WrapServiceMetrics)
 	}
 	
-	sr.Service =  wrapRootService(sr.Service, loggingWrapper)
+	sr.Service = wrapRootService(sr.Service, loggingWrapper)
 	
-	for _,wrapper := range bConfig.ServiceWrappers {
+	for _, wrapper := range bConfig.ServiceWrappers {
 		sr.Service = wrapRootService(sr.Service, wrapper)
 	}
 	
@@ -281,7 +375,7 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...httpT
 	)
 	
 	var decoratedRouter http.Handler = router
-	if decoratedRequest,ok := sr.Request.(request.Decorator);ok {
+	if decoratedRequest, ok := sr.Request.(request.Decorator); ok {
 		decoratedRouter = decoratedRequest.UsingDecorator()(decoratedRouter)
 	}
 	return decoratedRouter
