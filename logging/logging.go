@@ -48,6 +48,9 @@ func (l loggingWrappedService) GetNext() service.Service {
 
 func (l loggingWrappedService) Execute(ctx context.Context, req interface{}) (response interface{}, err error) {
 	defer func(start time.Time) {
+		if l.logger == nil {
+			return
+		}
 		endTime := time.Now().UTC()
 		code := 200
 		if v,ok := err.(kitDefaults.CodedError); ok && v != nil && v.StatusCode() != 0 {
