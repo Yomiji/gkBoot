@@ -33,26 +33,14 @@ func Harness(
 	runners TestRunners,
 	t *testing.T,
 ) {
-	srv, blocker := gkBoot.Start(
+	srv, _ := gkBoot.Start(
 		serviceRequests,
 		bootOption...,
 	)
 	defer srv.Shutdown(context.Background())
 	
 	for name, test := range runners {
-		doneChan := make(chan struct{})
-		go func() {
-			t.Run(name, test)
-			doneChan <- struct{}{}
-		}()
-		select {
-		case <-blocker:
-			t.Fatalf("unexpected test exit")
-		case <-time.After(10 * time.Second):
-			t.Fatalf("unexpected test timeout")
-		case <-doneChan:
-			continue
-		}
+		t.Run(name, test)
 	}
 }
 
