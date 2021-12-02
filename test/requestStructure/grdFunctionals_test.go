@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	
@@ -11,6 +12,70 @@ import (
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/request"
 )
+
+type ManualRequest struct {
+	Name   string      `request:"header"`
+	Count  int         `request:"header" alias:"Count-Var"`
+	Scores []int8      `request:"query"`
+	Tests  []complex64 `request:"query" json:"tests"`
+}
+
+func (m ManualRequest) Decode(ctx context.Context, httpRequest *http.Request) (request interface{}, err error) {
+	name := httpRequest.Header.Get("Name")
+	countVar := httpRequest.Header.Get("Count-Var")
+	count, err := strconv.Atoi(countVar)
+	if err != nil {
+		return nil, err
+	}
+	scores := make([]int8, 0)
+	scoresQuery := httpRequest.URL.Query().Get("scores")
+	scoresVar := strings.Split(scoresQuery, ",")
+	for _, score := range scoresVar {
+		if sn, e := strconv.ParseInt(strings.TrimSpace(score), 10, 8); e == nil {
+			scores = append(scores,int8(sn))
+		}
+	}
+	
+	tests := make([]complex64, 0)
+	testsQuery := httpRequest.URL.Query().Get("tests")
+	testsVar := strings.Split(testsQuery, ",")
+	for _, test := range testsVar {
+		if tn, e := strconv.ParseComplex(strings.TrimSpace(test), 64); e == nil {
+			tests = append(tests, complex64(tn))
+		}
+	}
+	
+	return &ManualRequest{
+		Name:   name,
+		Count:  count,
+		Scores: scores,
+		Tests:  tests,
+	}, nil
+}
+
+func (m ManualRequest) Info() request.HttpRouteInfo {
+	panic("implement me")
+}
+
+func BenchmarkManualRequestDecoderMixTypes(b *testing.B) {
+	mReq := new(ManualRequest)
+	decoder := mReq.Decode
+	request, _ := http.NewRequest("GET", "http://localhost", nil)
+	request.Header.Set("Name", "testValue")
+	request.Header.Set("Count-Var", "3")
+	q := request.URL.Query()
+	q.Set("Scores", "18,27")
+	q.Set("tests", "13+4i, 1+3i")
+	request.URL.RawQuery = q.Encode()
+	b.ResetTimer()
+	if _,err := decoder(context.TODO(), request); err != nil {
+		b.FailNow()
+		return
+	}
+	for i := 0; i < b.N; i++ {
+		decoder(context.TODO(), request)
+	}
+}
 
 type MixTypeRequest struct {
 	Name   string      `request:"header"`
@@ -60,6 +125,10 @@ func BenchmarkGenerateRequestDecoderMixTypes(b *testing.B) {
 	q.Set("tests", "13+4i, 1+3i")
 	request.URL.RawQuery = q.Encode()
 	b.ResetTimer()
+	if _,err := decoder(context.TODO(), request); err != nil {
+		b.FailNow()
+		return
+	}
 	for i := 0; i < b.N; i++ {
 		decoder(context.TODO(), request)
 	}
