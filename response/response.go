@@ -63,7 +63,16 @@ type ExpandedLogging struct {
 func (l *ExpandedLogging) Log(values ...interface{}) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
-	l.lvalues[values[0].(string)] = values[1]
+	if l.lvalues == nil {
+		l.lvalues = make(map[string]interface{})
+	}
+	for i := 0; i < len(values); i += 2 {
+		if i+1 >= len(values) {
+			l.lvalues[fmt.Sprintf("%s", values[i])] = nil
+		} else {
+			l.lvalues[fmt.Sprintf("%s", values[i])] = values[i+1]
+		}
+	}
 }
 
 // GetAll
