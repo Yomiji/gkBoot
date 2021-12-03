@@ -1,6 +1,7 @@
 package gkBoot
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/yomiji/gkBoot/config"
+	"github.com/yomiji/gkBoot/helpers"
 	"github.com/yomiji/gkBoot/kitDefaults"
 	"github.com/yomiji/gkBoot/logging"
 	"github.com/yomiji/gkBoot/metrics"
@@ -229,14 +231,14 @@ func StartServerWithHandler(serviceRequests []ServiceRequest, option ...config.G
 	<-blocker
 }
 
-func getCustomDecoder(sr ServiceRequest) (httpTransport.DecodeRequestFunc, error) {
+func getCustomDecoder(sr ServiceRequest) (kitDefaults.DecodeRequestFunc, error) {
 	if customDecoder, ok := sr.Request.(HttpDecoder); ok {
 		return customDecoder.Decode, nil
 	}
 	return GenerateRequestDecoder(sr.Request)
 }
 
-func getCustomEncoder(sr ServiceRequest) httpTransport.EncodeResponseFunc {
+func getCustomEncoder(sr ServiceRequest) kitDefaults.EncodeResponseFunc {
 	if customEncoder, ok := sr.Service.(service.HttpEncoder); ok {
 		return customEncoder.Encode
 	}
@@ -334,8 +336,8 @@ func (s *serviceBuilder) Build() service.Service {
 }
 
 func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...httpTransport.ServerOption) http.Handler {
-	var decoder httpTransport.DecodeRequestFunc
-	var encoder httpTransport.EncodeResponseFunc
+	var decoder kitDefaults.DecodeRequestFunc
+	var encoder kitDefaults.EncodeResponseFunc
 	var err error
 	var req = sr.Request.(request.HttpRequest)
 	
@@ -371,7 +373,20 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...httpT
 	
 	router := mux.NewRouter()
 	router.Handle(
-		req.Info().Path, httpTransport.NewServer(sr.Service.Execute, decoder, encoder, serviceOptions...),
+		req.Info().Path, httpTransport.NewServer(sr.Service.Execute,
+			httpTransport.DecodeRequestFunc(decoder),
+			httpTransport.EncodeResponseFunc(encoder),
+			append(serviceOptions, httpTransport.ServerErrorEncoder(
+				func(ctx context.Context, err error, w http.ResponseWriter) {
+					if err != nil {
+						if bConfig.Logger != nil {
+							ctxHeaders := helpers.GetCtxHeadersFromContext(ctx)
+							bConfig.Logger.Log("Request", req.Info(),
+								"RequestType", "HTTP", "Error", err, "CtxHeaders", ctxHeaders)
+						}
+						w.WriteHeader(http.StatusInternalServerError)
+					}
+				}))...),
 	)
 	
 	var decoratedRouter http.Handler = router
