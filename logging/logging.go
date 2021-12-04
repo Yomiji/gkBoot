@@ -15,7 +15,7 @@ import (
 // Defines a logging pattern that is popular in go-kit. Establishing this interface keeps us
 // from having to import go-kit here while also maintaining type safety.
 type Logger interface {
-	Log(elem...interface{}) error
+	Log(elem ...interface{}) error
 }
 
 type skipLoggable interface {
@@ -27,7 +27,7 @@ type skipLoggable interface {
 //  Implements skipLoggable
 //
 // Embed into services that should skip logging. These services will not be logged at all
-type LogSkip struct {}
+type LogSkip struct{}
 
 func (l LogSkip) skipLogging() bool {
 	return true
@@ -53,11 +53,14 @@ func (l loggingWrappedService) Execute(ctx context.Context, req interface{}) (re
 		}
 		endTime := time.Now().UTC()
 		code := 200
-		if v,ok := err.(kitDefaults.HttpCoder); ok && v != nil && v.StatusCode() != 0 {
+		if v, ok := err.(kitDefaults.HttpCoder); ok && v != nil && v.StatusCode() != 0 {
 			code = v.StatusCode()
 		} else if !ok && err != nil {
 			code = 500
+		} else if j, ok := response.(kitDefaults.HttpCoder); ok && j != nil && j.StatusCode() != 0 {
+			code = j.StatusCode()
 		}
+		
 		ctxHeaders := helpers.GetCtxHeadersFromContext(ctx)
 		additionalLogs := helpers.GetAdditionalLogs(response)
 		var httpRequestLog []interface{}
@@ -89,7 +92,7 @@ func (l loggingWrappedService) Execute(ctx context.Context, req interface{}) (re
 // service executes, a log will be generated
 func GenerateLoggingWrapper(logger Logger) service.Wrapper {
 	return func(srv service.Service) service.Service {
-		if _,ok := srv.(skipLoggable); ok {
+		if _, ok := srv.(skipLoggable); ok {
 			return srv
 		}
 		return &loggingWrappedService{logger, srv}

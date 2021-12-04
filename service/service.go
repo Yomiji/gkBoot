@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"reflect"
 	
 	httpTransport "github.com/go-kit/kit/transport/http"
 )
@@ -142,7 +143,7 @@ type OptionsConfigurable interface {
 // the ExpectedResponses list will be used to validate all service execution.
 type OpenAPICompatible interface {
 	Service
-	ExpectedResponses() []RegisteredResponse
+	ExpectedResponses() MappedResponses
 }
 
 // RegisteredResponse
@@ -150,5 +151,59 @@ type OpenAPICompatible interface {
 // Each RegisteredResponse is an expected response from the given OpenAPICompatible service.
 type RegisteredResponse struct {
 	ExpectedCode int
+	Type         interface{}
+	ReflectType  reflect.Type
+}
+
+// MappedResponses
+//
+// type alias: map[string]RegisteredResponse
+type MappedResponses map[string]RegisteredResponse
+
+// ResponseType
+//
+// slimmed down schema used to register service response types
+type ResponseType struct {
 	Type interface{}
+	Code int
+}
+
+// ResponseTypes
+//
+// type alias: []ResponseType
+type ResponseTypes []ResponseType
+
+// RegisterResponses
+//
+// helper method used to generate the proper return value for ExpectedResponses of the OpenAPICompatible interface
+func RegisterResponses(types []ResponseType) MappedResponses {
+	m := make(MappedResponses)
+	for _, typ := range types {
+		addResponse(m, typ.Type, typ.Code)
+	}
+	return m
+}
+
+func addResponse(responseMap MappedResponses, respType interface{}, statusCode int) {
+	reflectType := reflect.Indirect(reflect.ValueOf(respType)).Type()
+	typeName := reflectType.Name()
+	responseMap[typeName] = RegisteredResponse{
+		ExpectedCode: statusCode,
+		Type:         respType,
+		ReflectType:  reflectType,
+	}
+}
+
+// IsResponseValid
+//
+// check if a service response is valid based on its OpenAPICompatible implementation
+func IsResponseValid(service OpenAPICompatible, response interface{}, code int) bool {
+	typ := reflect.Indirect(reflect.ValueOf(response)).Type()
+	typeName := reflect.Indirect(reflect.ValueOf(response)).Type().Name()
+	
+	if v, ok := service.ExpectedResponses()[typeName]; ok {
+		return v.ExpectedCode == code && v.ReflectType.AssignableTo(typ)
+	}
+	
+	return false
 }
