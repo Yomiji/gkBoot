@@ -88,6 +88,13 @@ type BootConfig struct {
 	// The service.Wrapper can check for and respond to the interfaces implemented on the service,
 	// whereas Decorators cannot.
 	Decorators []func(handler http.Handler) http.Handler
+	// StrictOpenAPI
+	//
+	// Default value: false
+	//
+	// When true, all wired services must implement service.OpenAPICompatible interface and all
+	// responses from the service must be declared in service.OpenAPICompatible ExpectedResponses function
+	StrictOpenAPI bool
 }
 
 // GkBootOption
@@ -185,5 +192,15 @@ func WithServiceWrapper(wrapper service.Wrapper) GkBootOption {
 func WithServiceDecorator(decorator func(handler http.Handler) http.Handler) GkBootOption {
 	return func(config *BootConfig) {
 		config.Decorators = append(config.Decorators, decorator)
+	}
+}
+
+// WithStrictAPI
+//
+// When used, all services must implement service.OpenAPICompatible interface and all
+// responses from the service must be declared in service.OpenAPICompatible ExpectedResponses function
+func WithStrictAPI() GkBootOption {
+	return func(config *BootConfig) {
+		config.StrictOpenAPI = true
 	}
 }
