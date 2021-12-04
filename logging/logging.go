@@ -53,7 +53,7 @@ func (l loggingWrappedService) Execute(ctx context.Context, req interface{}) (re
 		}
 		endTime := time.Now().UTC()
 		code := 200
-		if v,ok := err.(kitDefaults.CodedError); ok && v != nil && v.StatusCode() != 0 {
+		if v,ok := err.(kitDefaults.HttpCoder); ok && v != nil && v.StatusCode() != 0 {
 			code = v.StatusCode()
 		} else if !ok && err != nil {
 			code = 500

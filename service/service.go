@@ -134,3 +134,21 @@ type OptionsConfigurable interface {
 	// is first created and used throughout the service lifetime
 	ServerOptions() []httpTransport.ServerOption
 }
+
+// OpenAPICompatible
+//
+// Indicates that the service adheres to the OpenAPI standard. ExpectedResponses are all of the responses
+// that the service will be expected to generate. If Strict mode is enabled (see config.Config) then
+// the ExpectedResponses list will be used to validate all service execution.
+type OpenAPICompatible interface {
+	Service
+	ExpectedResponses() []RegisteredResponse
+}
+
+// RegisteredResponse
+//
+// Each RegisteredResponse is an expected response from the given OpenAPICompatible service.
+type RegisteredResponse struct {
+	ExpectedCode int
+	Type interface{}
+}

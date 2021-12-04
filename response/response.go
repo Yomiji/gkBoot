@@ -15,7 +15,7 @@ type BasicResponse struct {
 
 // Failed
 //
-// Implements endpoint.Failer
+// Implements kitDefaults.Failer
 func (b BasicResponse) Failed() error {
 	if b.errString != "" {
 		return b
@@ -29,6 +29,10 @@ func (b BasicResponse) Failed() error {
 func (b *BasicResponse) NewError(code int, format string, vars ...interface{}) {
 	b.code = code
 	b.errString = fmt.Sprintf(format, vars...)
+}
+
+func (b *BasicResponse) NewCode(code int) {
+	b.code = code
 }
 
 // StatusCode
