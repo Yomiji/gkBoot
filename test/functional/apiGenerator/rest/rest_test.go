@@ -55,8 +55,8 @@ func TestRestService(t *testing.T) {
 					subT.Fatalf("failed request: %s\n", err.Error())
 				}
 			}()
-			if httpResponse.StatusCode == 200 {
-				subT.Fatalf("expected status code != 200")
+			if httpResponse.StatusCode == 201 {
+				subT.Fatalf("expected status code != 201")
 			}
 		},
 	).Test("Omit Cost has Err", func(subT *testing.T) {
@@ -73,8 +73,8 @@ func TestRestService(t *testing.T) {
 				subT.Fatalf("failed request: %s\n", err.Error())
 			}
 		}()
-		if httpResponse.StatusCode == 200 {
-			subT.Fatalf("expected status code != 200")
+		if httpResponse.StatusCode == 201 {
+			subT.Fatalf("expected status code != 201")
 		}
 	},
 	).Test("Request is err intentionally", func(subT *testing.T) {
@@ -91,8 +91,8 @@ func TestRestService(t *testing.T) {
 				subT.Fatalf("failed request: %s\n", err.Error())
 			}
 		}()
-		if httpResponse.StatusCode == 200 {
-			subT.Fatalf("expected status code != 200")
+		if httpResponse.StatusCode == 201 {
+			subT.Fatalf("expected status code != 201")
 		}
 	},
 	).Test("Request has named cookie", func(subT *testing.T) {

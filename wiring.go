@@ -366,6 +366,10 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...httpT
 		sr.Service = wrapRootService(sr.Service, wrapper)
 	}
 	
+	if bConfig.StrictOpenAPI {
+		sr.Service = wrapRootService(sr.Service, APIValidationWrapper)
+	}
+	
 	if decoder, err = getCustomDecoder(sr); err != nil {
 		_ = bConfig.Logger.Log("err", fmt.Sprintf("decoder generation failed for %s", req.Info().Name))
 	}
@@ -384,7 +388,10 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...httpT
 							bConfig.Logger.Log("Request", req.Info(),
 								"RequestType", "HTTP", "Error", err, "CtxHeaders", ctxHeaders)
 						}
-						w.WriteHeader(http.StatusInternalServerError)
+						sc := w.Header().Get("Status-Code")
+						if _, err := strconv.Atoi(sc); err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+						}
 					}
 				}))...),
 	)
