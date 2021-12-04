@@ -44,7 +44,13 @@ func Harness(
 	}
 }
 
-func CallAPI(method, url string, headers map[string]string, reqBody interface{}) (*http.Response, error) {
+func CallAPI(
+	method, url string, headers map[string]string, reqBody interface{},
+	cookies ...*http.Cookie,
+) (
+	*http.Response,
+	error,
+) {
 	var reader io.Reader
 	if reqBody != nil {
 		jBytes, err := json.Marshal(reqBody)
@@ -58,6 +64,9 @@ func CallAPI(method, url string, headers map[string]string, reqBody interface{})
 	}
 	for k, v := range headers {
 		request.Header.Set(k, v)
+	}
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
 	}
 	return http.DefaultClient.Do(request)
 }

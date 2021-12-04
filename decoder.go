@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"strings"
 	
-	kit "github.com/go-kit/kit/transport/http"
 	"github.com/gorilla/mux"
 	"github.com/yomiji/gkBoot/helpers"
+	"github.com/yomiji/gkBoot/kitDefaults"
 	"github.com/yomiji/gkBoot/request"
 )
 
@@ -45,7 +45,7 @@ import (
 // The resulting decoder function always returns a pointer to a new instantiation of the 'obj' argument.
 //
 // The obj argument may be a reference or a value type
-func GenerateRequestDecoder(obj request.HttpRequest) (kit.DecodeRequestFunc, error) {
+func GenerateRequestDecoder(obj request.HttpRequest) (kitDefaults.DecodeRequestFunc, error) {
 	reqObjType := reflect.TypeOf(obj)
 	reqObjKind := reqObjType.Kind()
 	if reqObjKind == reflect.Ptr {
@@ -58,9 +58,11 @@ func GenerateRequestDecoder(obj request.HttpRequest) (kit.DecodeRequestFunc, err
 	return func(ctx context.Context, request2 *http.Request) (req interface{}, err error) {
 		// always get a new blank value on every request
 		workingValue := reflect.New(reqObjType)
-		err = assignValues(ctx, request2, workingValue)
-		
 		concreteValue := workingValue.Interface()
+		err = assignValues(ctx, request2, workingValue)
+		if err != nil {
+			return concreteValue, err
+		}
 		if validator,ok := concreteValue.(request.Validator); ok {
 			err = validator.Validate()
 		}
@@ -171,13 +173,19 @@ func assignValues(ctx context.Context, r *http.Request, workingValuePtr reflect.
 }
 
 func readTag(field reflect.StructField) (requestPart, alias, jsonAlias string) {
-	if tag, ok := field.Tag.Lookup("request"); ok {
+	var ok bool
+	var tag string
+	
+	if requestPart, alias, jsonAlias, ok = fromSwaggestTag(field); ok {
+		return
+	}
+	if tag, ok = field.Tag.Lookup("request"); ok {
 		requestPart = tag
 	}
-	if tag, ok := field.Tag.Lookup("alias"); ok {
+	if tag, ok = field.Tag.Lookup("alias"); ok {
 		alias = tag
 	}
-	if tag, ok := field.Tag.Lookup("json"); ok {
+	if tag, ok = field.Tag.Lookup("json"); ok {
 		if tag == "-," {
 			jsonAlias = "-"
 		} else {
@@ -190,8 +198,44 @@ func readTag(field reflect.StructField) (requestPart, alias, jsonAlias string) {
 	return
 }
 
+func fromSwaggestTag(field reflect.StructField) (requestPart, alias, jsonAlias string, ok bool) {
+	swaggestTags := []string{"path", "query", "formData", "cookie", "header"}
+	var required bool
+	if r, k := field.Tag.Lookup("required"); k {
+		if r != "" {
+			rBool, _ := strconv.ParseBool(r)
+			required = rBool
+		} else {
+			required = true
+		}
+	}
+	for _, structTag := range swaggestTags {
+		var tag string
+		if tag, ok = field.Tag.Lookup(structTag); ok {
+			switch structTag {
+			case "formData":
+				requestPart = "form"
+			default:
+				if required {
+					requestPart = structTag + "!"
+				} else {
+					requestPart = structTag
+				}
+			}
+			
+			alias = tag
+			jsonAlias = tag
+			ok = true
+		}
+	}
+	
+	return
+}
+
 func returnOperationByTagValue(tagName string) typicalRequestType {
 	switch tagName {
+	case "cookie", "cookie!":
+		return readRequestCookie
 	case "header", "header!":
 		return readRequestHeader
 	case "query", "query!":
@@ -212,10 +256,35 @@ func checkRequired(fieldName, strVal string, isRequired bool) error {
 	return nil
 }
 
+func checkCookieRequired(fieldName, strVal string, err error, isRequired bool) error {
+	if isRequired {
+		if strVal == "" {
+			return errors.New(fmt.Sprintf("'%s' cookie is missing a required value: %s", fieldName, err))
+		}
+	}
+	return nil
+}
+
 type typicalRequestType func(r *http.Request, fieldName string, destType reflect.Type, isRequired bool) (
 // returns:
 	reflect.Value, error,
 )
+
+func readRequestCookie(r *http.Request, fieldName string, destType reflect.Type, isRequired bool) (
+// returns:
+	reflect.Value, error,
+) {
+	cookie,err := r.Cookie(fieldName)
+	if cookie == nil && isRequired {
+		return reflect.Value{}, fmt.Errorf("required cookie not found or not set: %s", fieldName)
+	} else if cookie == nil {
+		return convertStringToValue("", destType, false)
+	}
+	if err := checkCookieRequired(fieldName, cookie.Value, err, isRequired); err != nil {
+		return reflect.Value{}, err
+	}
+	return convertStringToValue(cookie.Value, destType, false)
+}
 
 func readRequestHeader(r *http.Request, fieldName string, destType reflect.Type, isRequired bool) (
 // returns:
