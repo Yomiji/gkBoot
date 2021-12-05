@@ -197,11 +197,11 @@ func addResponse(responseMap MappedResponses, respType interface{}, statusCode i
 // IsResponseValid
 //
 // check if a service response is valid based on its OpenAPICompatible implementation
-func IsResponseValid(service OpenAPICompatible, response interface{}, code int) bool {
+func IsResponseValid(mappedResp MappedResponses, response interface{}, code int) bool {
 	typ := reflect.Indirect(reflect.ValueOf(response)).Type()
 	typeName := reflect.Indirect(reflect.ValueOf(response)).Type().Name()
 	
-	if v, ok := service.ExpectedResponses()[typeName]; ok {
+	if v, ok := mappedResp[typeName]; ok {
 		return v.ExpectedCode == code && v.ReflectType.AssignableTo(typ)
 	}
 	

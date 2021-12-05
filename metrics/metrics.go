@@ -40,6 +40,8 @@ type MappedMetrics struct {
 }
 
 type metricsWrapper struct {
+	ptrUpdateMetrics func(ctx context.Context, request interface{}, response interface{}, startTime time.Time,
+	mappedMetrics *MappedMetrics)
 	service service.Service
 	metrics *MappedMetrics
 }
@@ -61,10 +63,7 @@ func (m *metricsWrapper) GetNext() service.Service {
 func (m *metricsWrapper) Execute(ctx context.Context, request interface{}) (response interface{}, err error) {
 	defer func(startTime time.Time) {
 		r := response
-		var outerService = getMeteredService(m.service)
-		if outerService != nil {
-			outerService.UpdateMetrics(ctx, request, r, startTime, m.metrics)
-		}
+		m.ptrUpdateMetrics(ctx, request, r, startTime, m.metrics)
 	}(time.Now().UTC())
 	return m.service.Execute(ctx, request)
 }
@@ -72,6 +71,7 @@ func (m *metricsWrapper) Execute(ctx context.Context, request interface{}) (resp
 func WrapServiceMetrics(service service.Service) service.Service {
 	m := new(metricsWrapper)
 	if metered, ok := service.(Metered); ok {
+		m.ptrUpdateMetrics = metered.UpdateMetrics
 		metrics := metered.Metrics()
 		for _, counter := range metrics.Counters {
 			prometheus.MustRegister(counter)
@@ -87,14 +87,4 @@ func WrapServiceMetrics(service service.Service) service.Service {
 	}
 	
 	return m
-}
-
-func getMeteredService(srv service.Service) Metered {
-	if metered,ok := srv.(Metered); ok {
-		return metered
-	}
-	if wrapped,ok := srv.(service.UpdatableWrappedService); ok {
-		return getMeteredService(wrapped.GetNext())
-	}
-	return nil
 }
