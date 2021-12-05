@@ -55,13 +55,13 @@ import (
 type Request struct {
 	// the "header!" tag value indicates that the value is required to be in
 	// the header with the alias indicating that it should be named Secret-Value
-	SecretValue string `request:"header!" alias:"Secret-Value" json:"-"`
+	SecretValue string `header:"Secret-Value" required:"true" json:"-"`
 	// the "query" tag value indicates that the value of the object is found in
 	// the request query params
-	FirstName   string `request:"query" json:"firstName"`
+	FirstName   string `query:"firstName" json:"firstName"`
 	// the "path" tag value indicates that the value of the object is found in
 	// the url request path
-	Age         int    `request:"path" json:"age"`
+	Age         int    `path:"age" json:"age"`
 }
 
 func (r Request) Info() request.HttpRouteInfo {
