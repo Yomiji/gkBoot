@@ -6,7 +6,6 @@ import (
 	
 	"github.com/swaggest/openapi-go/openapi3"
 	"github.com/yomiji/gkBoot/kitDefaults"
-	request2 "github.com/yomiji/gkBoot/request"
 	"github.com/yomiji/gkBoot/service"
 )
 
@@ -57,6 +56,7 @@ func GenerateSpecification(requests []ServiceRequest, optionalReflector *openapi
 }
 
 type openApiResponseValidatorService struct {
+	mappedResponses service.MappedResponses
 	next service.Service
 }
 
@@ -64,20 +64,14 @@ func (o openApiResponseValidatorService) Execute(ctx context.Context, request in
 	response interface{}, err error,
 ) {
 	response, err = o.next.Execute(ctx, request)
-	if v, ok := o.next.(service.OpenAPICompatible); ok {
-		if j, ok2 := response.(kitDefaults.HttpCoder); ok2 {
-			if service.IsResponseValid(v, response, j.StatusCode()) {
-				return response, err
-			}
+	if j, ok2 := response.(kitDefaults.HttpCoder); ok2 {
+		if service.IsResponseValid(o.mappedResponses, response, j.StatusCode()) {
+			return response, err
 		}
-		
-		return response, fmt.Errorf(
-			"possible api violation, type or code not matched for response",
-		)
 	}
 	
-	return nil, fmt.Errorf(
-		"service attached to %s is not OpenAPI compatible", request.(request2.HttpRequest).Info().Name,
+	return response, fmt.Errorf(
+		"possible api violation, type or code not matched for response",
 	)
 }
 
@@ -90,7 +84,11 @@ func (o *openApiResponseValidatorService) UpdateNext(nxt service.Service) {
 }
 
 func APIValidationWrapper(srv service.Service) service.Service {
+	if _,ok := srv.(service.OpenAPICompatible); !ok {
+		panic( fmt.Errorf("service is not OpenAPI compatible: %t", srv))
+	}
 	return &openApiResponseValidatorService{
+		mappedResponses: srv.(service.OpenAPICompatible).ExpectedResponses(),
 		next: srv,
 	}
 }
