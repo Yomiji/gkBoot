@@ -64,6 +64,12 @@ func (o openApiResponseValidatorService) Execute(ctx context.Context, request in
 	response interface{}, err error,
 ) {
 	response, err = o.next.Execute(ctx, request)
+	
+	// pass through strict errors without checking API conformity
+	if err != nil {
+		return response, err
+	}
+	
 	if j, ok2 := response.(kitDefaults.HttpCoder); ok2 {
 		if service.IsResponseValid(o.mappedResponses, response, j.StatusCode()) {
 			return response, err

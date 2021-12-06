@@ -7,16 +7,22 @@ import (
 
 // BasicResponse
 //
-// When embedded into a Response object, this wil provide error handling functionality
+// When embedded into a Response object, this wil provide basic functionality
 type BasicResponse struct {
-	errString string
 	code      int
 }
 
+// ErrorResponse
+//
+// When embedded into a Response object, this wil provide error handling functionality
+type ErrorResponse struct {
+	errString string
+	BasicResponse
+}
 // Failed
 //
 // Implements kitDefaults.Failer
-func (b BasicResponse) Failed() error {
+func (b ErrorResponse) Failed() error {
 	if b.errString != "" {
 		return b
 	}
@@ -26,7 +32,7 @@ func (b BasicResponse) Failed() error {
 // NewError
 //
 // Use this function when it is necessary to indicate an error result for business logic
-func (b *BasicResponse) NewError(code int, format string, vars ...interface{}) {
+func (b *ErrorResponse) NewError(code int, format string, vars ...interface{}) {
 	b.code = code
 	b.errString = fmt.Sprintf(format, vars...)
 }
@@ -45,7 +51,7 @@ func (b BasicResponse) StatusCode() int {
 // Error
 //
 // Implements error interface
-func (b BasicResponse) Error() string {
+func (b ErrorResponse) Error() string {
 	return b.errString
 }
 
