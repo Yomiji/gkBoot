@@ -263,6 +263,7 @@ type serviceBuilder struct {
 //  config.WithMetricsPath
 //  config.WithHttpPort
 //  config.WithRootPath
+//  config.WithStrictAPI
 func NewServiceBuilder(srv service.Service, option ...config.GkBootOption) *serviceBuilder {
 	nsb := new(serviceBuilder)
 	nsb.srv = srv
@@ -274,6 +275,7 @@ func NewServiceBuilder(srv service.Service, option ...config.GkBootOption) *serv
 	for _, wrapper := range nsb.config.ServiceWrappers {
 		nsb.srv = wrapRootService(nsb.srv, wrapper)
 	}
+	
 	return nsb
 }
 
@@ -332,6 +334,10 @@ func (s *serviceBuilder) MixinCustomWrapper(wrapper service.Wrapper) *serviceBui
 //
 // Build the final service and return the result.
 func (s *serviceBuilder) Build() service.Service {
+	if s.config.StrictOpenAPI {
+		s.srv = wrapRootService(s.srv, APIValidationWrapper)
+	}
+	
 	return s.srv
 }
 
@@ -377,23 +383,39 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...httpT
 	
 	router := mux.NewRouter()
 	router.Handle(
-		req.Info().Path, httpTransport.NewServer(sr.Service.Execute,
+		req.Info().Path, httpTransport.NewServer(
+			sr.Service.Execute,
 			httpTransport.DecodeRequestFunc(decoder),
 			httpTransport.EncodeResponseFunc(encoder),
-			append(serviceOptions, httpTransport.ServerErrorEncoder(
-				func(ctx context.Context, err error, w http.ResponseWriter) {
-					if err != nil {
-						if bConfig.Logger != nil {
-							ctxHeaders := helpers.GetCtxHeadersFromContext(ctx)
-							bConfig.Logger.Log("Request", req.Info(),
-								"RequestType", "HTTP", "Error", err, "CtxHeaders", ctxHeaders)
+			append(
+				serviceOptions, httpTransport.ServerErrorEncoder(
+					func(ctx context.Context, err error, w http.ResponseWriter) {
+						if err != nil {
+							if bConfig.Logger != nil {
+								ctxHeaders := helpers.GetCtxHeadersFromContext(ctx)
+								bConfig.Logger.Log(
+									"Request", req.Info(),
+									"RequestType", "HTTP", "Error", err, "CtxHeaders", ctxHeaders,
+								)
+							}
+							
+							sc := w.Header().Get("Status-Code")
+							
+							// if no status code given, use the coder interface or, if missing, use 500
+							if sc == "" {
+								if j, ok := err.(kitDefaults.HttpCoder); ok {
+									w.WriteHeader(j.StatusCode())
+								} else {
+									if _, err := strconv.Atoi(sc); err != nil {
+										w.WriteHeader(http.StatusInternalServerError)
+									}
+								}
+							}
 						}
-						sc := w.Header().Get("Status-Code")
-						if _, err := strconv.Atoi(sc); err != nil {
-							w.WriteHeader(http.StatusInternalServerError)
-						}
-					}
-				}))...),
+					},
+				),
+			)...,
+		),
 	)
 	
 	var decoratedRouter http.Handler = router
