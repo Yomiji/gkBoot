@@ -58,12 +58,20 @@ func GenerateRequestDecoder(obj request.HttpRequest) (kitDefaults.DecodeRequestF
 		return nil, fmt.Errorf("request object '%s' must be a Struct type", objName)
 	}
 	
-	if _, ok := obj.(jsonBody); ok {
+	wv := reflect.New(reqObjType)
+	cv := wv.Interface()
+	if _, ok := cv.(jsonBody); ok {
 		return func(ctx context.Context, h *http.Request) (interface{}, error) {
 			// always get a new blank value on every request
 			workingValue := reflect.New(reqObjType)
 			concreteValue := workingValue.Interface()
 			err := decodeStructBody(ctx, h, workingValue)
+			if err != nil {
+				return concreteValue, err
+			}
+			if validator,ok := concreteValue.(request.Validator); ok {
+				err = validator.Validate()
+			}
 			return concreteValue, err
 		}, nil
 	}
@@ -88,6 +96,9 @@ type jsonBody interface {
 	isJasonBody()
 }
 
+// JSONBody
+//
+// When embedded into a request, flags the request as a JSON body to allow for automatic decoding.
 type JSONBody struct {}
 
 func (J JSONBody) isJasonBody() {}
