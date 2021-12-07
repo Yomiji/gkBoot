@@ -450,3 +450,36 @@ func TestGenerateRequestDecoderHandlesPathVars(t *testing.T) {
 		}
 	}
 }
+
+type JsonDecoderTest struct {
+	Name string `json:"name"`
+	Count int `json:"count"`
+	Test float32 `json:"test"`
+	gkBoot.JSONBody
+}
+
+func (j JsonDecoderTest) Info() request.HttpRouteInfo {
+	panic("implement me")
+}
+
+func TestGenerateJSONBodyDecoder(t *testing.T) {
+	decoder, err := gkBoot.GenerateRequestDecoder(new(JsonDecoderTest))
+	if err != nil {
+		t.Fail()
+	}
+	request, _ := http.NewRequest("GET", "http://localhost/name/count", nil)
+	request.Body = io.NopCloser(strings.NewReader("{\"name\":\"val\",\"count\":44,\"test\":21.1}"))
+	if decoder == nil {
+		t.Fail()
+	} else {
+		val, err := decoder(context.TODO(), request)
+		if err != nil {
+			t.Fatalf("basic decoder failure: %s", err.Error())
+		}
+		if v, ok := val.(*JsonDecoderTest); !ok {
+			t.Fatalf("type not correct: %T", val)
+		} else if v.Count != 44 || v.Name != "val" || v.Test != 21.1 {
+			t.Fatalf("values do not match: %+v", v)
+		}
+	}
+}
