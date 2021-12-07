@@ -48,13 +48,26 @@ import (
 func GenerateRequestDecoder(obj request.HttpRequest) (kitDefaults.DecodeRequestFunc, error) {
 	reqObjType := reflect.TypeOf(obj)
 	reqObjKind := reqObjType.Kind()
+	
 	if reqObjKind == reflect.Ptr {
 		reqObjType = reqObjType.Elem()
 	}
+	
 	if reqObjType.Kind() != reflect.Struct {
 		objName := helpers.GetFriendlyRequestName(obj)
 		return nil, fmt.Errorf("request object '%s' must be a Struct type", objName)
 	}
+	
+	if _, ok := obj.(jsonBody); ok {
+		return func(ctx context.Context, h *http.Request) (interface{}, error) {
+			// always get a new blank value on every request
+			workingValue := reflect.New(reqObjType)
+			concreteValue := workingValue.Interface()
+			err := decodeStructBody(ctx, h, workingValue)
+			return concreteValue, err
+		}, nil
+	}
+	
 	return func(ctx context.Context, request2 *http.Request) (req interface{}, err error) {
 		// always get a new blank value on every request
 		workingValue := reflect.New(reqObjType)
@@ -71,6 +84,48 @@ func GenerateRequestDecoder(obj request.HttpRequest) (kitDefaults.DecodeRequestF
 	}, nil
 }
 
+type jsonBody interface {
+	isJasonBody()
+}
+
+type JSONBody struct {}
+
+func (J JSONBody) isJasonBody() {}
+
+func decodeStructBody(ctx context.Context, r *http.Request, workingValuePtr reflect.Value) error {
+	baseVal := workingValuePtr
+	// if the object is a pointer, get the dereference version. If it is nil, set a zeroed value.
+	if baseVal.Kind() == reflect.Ptr {
+		if baseVal.IsNil() && baseVal.CanSet() {
+			baseVal.Set(reflect.New(baseVal.Type()))
+		}
+		baseVal = baseVal.Elem()
+	}
+	baseValType := baseVal.Type()
+	
+	// if no field ops, attempt body reading
+	// begin to set form values using the interface type via json
+	if !baseVal.CanSet() {
+		return fmt.Errorf("can't set %s, check exporting", baseValType.Name())
+	}
+	body := reflect.New(baseVal.Type()).Interface()
+	// set req body size limiter if sent to us
+	limit := helpers.GetRequestBodyLimit(ctx)
+	if limit != nil {
+		err := readFormBody(r, body, *limit)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := readFormBody(r, body, 0)
+		if err != nil {
+			return err
+		}
+	}
+	baseVal.Set(reflect.ValueOf(body).Elem())
+	
+	return nil
+}
 // HttpDecoder
 //
 // Objects that implement this interface will pass the defined function to the decoder part of
