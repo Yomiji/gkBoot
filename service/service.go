@@ -157,8 +157,8 @@ type RegisteredResponse struct {
 
 // MappedResponses
 //
-// type alias: map[string]RegisteredResponse
-type MappedResponses map[string]RegisteredResponse
+// type alias: []RegisteredResponse
+type MappedResponses []RegisteredResponse
 
 // ResponseType
 //
@@ -177,32 +177,35 @@ type ResponseTypes []ResponseType
 //
 // helper method used to generate the proper return value for ExpectedResponses of the OpenAPICompatible interface
 func RegisterResponses(types []ResponseType) MappedResponses {
-	m := make(MappedResponses)
+	m := make(MappedResponses,0)
+	
 	for _, typ := range types {
-		addResponse(m, typ.Type, typ.Code)
+		m = addResponse(m, typ.Type, typ.Code)
 	}
+	
 	return m
 }
 
-func addResponse(responseMap MappedResponses, respType interface{}, statusCode int) {
-	reflectType := reflect.Indirect(reflect.ValueOf(respType)).Type()
-	typeName := reflectType.Name()
-	responseMap[typeName] = RegisteredResponse{
+func addResponse(responseMap MappedResponses, respType interface{}, statusCode int) MappedResponses{
+	reflectType := reflect.ValueOf(respType).Type()
+	
+	return append(responseMap, RegisteredResponse{
 		ExpectedCode: statusCode,
 		Type:         respType,
 		ReflectType:  reflectType,
-	}
+	})
 }
 
 // IsResponseValid
 //
 // check if a service response is valid based on its OpenAPICompatible implementation
 func IsResponseValid(mappedResp MappedResponses, response interface{}, code int) bool {
-	typ := reflect.Indirect(reflect.ValueOf(response)).Type()
-	typeName := reflect.Indirect(reflect.ValueOf(response)).Type().Name()
+	typ := reflect.ValueOf(response).Type()
 	
-	if v, ok := mappedResp[typeName]; ok {
-		return v.ExpectedCode == code && v.ReflectType.AssignableTo(typ)
+	for _,resp := range mappedResp {
+		if resp.ExpectedCode == code && resp.ReflectType.AssignableTo(typ){
+			return true
+		}
 	}
 	
 	return false
