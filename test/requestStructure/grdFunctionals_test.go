@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	
-	"github.com/gorilla/mux"
+
+	"github.com/go-chi/chi/v5"
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/request"
 )
@@ -32,10 +32,10 @@ func (m ManualRequest) Decode(ctx context.Context, httpRequest *http.Request) (r
 	scoresVar := strings.Split(scoresQuery, ",")
 	for _, score := range scoresVar {
 		if sn, e := strconv.ParseInt(strings.TrimSpace(score), 10, 8); e == nil {
-			scores = append(scores,int8(sn))
+			scores = append(scores, int8(sn))
 		}
 	}
-	
+
 	tests := make([]complex64, 0)
 	testsQuery := httpRequest.URL.Query().Get("tests")
 	testsVar := strings.Split(testsQuery, ",")
@@ -44,7 +44,7 @@ func (m ManualRequest) Decode(ctx context.Context, httpRequest *http.Request) (r
 			tests = append(tests, complex64(tn))
 		}
 	}
-	
+
 	return &ManualRequest{
 		Name:   name,
 		Count:  count,
@@ -68,7 +68,7 @@ func BenchmarkManualRequestDecoderMixTypes(b *testing.B) {
 	q.Set("tests", "13+4i, 1+3i")
 	request.URL.RawQuery = q.Encode()
 	b.ResetTimer()
-	if _,err := decoder(context.TODO(), request); err != nil {
+	if _, err := decoder(context.TODO(), request); err != nil {
 		b.FailNow()
 		return
 	}
@@ -125,7 +125,7 @@ func BenchmarkGenerateRequestDecoderMixTypes(b *testing.B) {
 	q.Set("tests", "13+4i, 1+3i")
 	request.URL.RawQuery = q.Encode()
 	b.ResetTimer()
-	if _,err := decoder(context.TODO(), request); err != nil {
+	if _, err := decoder(context.TODO(), request); err != nil {
 		b.FailNow()
 		return
 	}
@@ -294,7 +294,7 @@ func TestGenerateRequestDecoderWorksWithUnexportedReferenceEmbed(t *testing.T) {
 
 type FormTestObject struct {
 	Header string `request:"header"`
-	Body Form `request:"form" json:"body"`
+	Body   Form   `request:"form" json:"body"`
 }
 
 func (f FormTestObject) Info() request.HttpRouteInfo {
@@ -303,7 +303,7 @@ func (f FormTestObject) Info() request.HttpRouteInfo {
 
 type Form struct {
 	Value string `json:"someValue"`
-	Count int `json:"count"`
+	Count int    `json:"count"`
 }
 
 func TestGenerateRequestDecoderForm(t *testing.T) {
@@ -385,10 +385,10 @@ func TestGenerateRequestDecoderRequiredFieldsFound(t *testing.T) {
 }
 
 type PointerTest struct {
-	P1int *int `request:"header" json:"p1"`
-	P2string *string `request:"header" json:"p2"`
+	P1int          *int        `request:"header" json:"p1"`
+	P2string       *string     `request:"header" json:"p2"`
 	P3float32Slice []**float32 `request:"header" json:"p3"`
-	P4Blank **int `request:"header" json:"p4"`
+	P4Blank        **int       `request:"header" json:"p4"`
 }
 
 func (p PointerTest) Info() request.HttpRouteInfo {
@@ -421,12 +421,20 @@ func TestGenerateRequestDecoderHandlesPointers(t *testing.T) {
 }
 
 type PathTest struct {
-	Name string `request:"path" json:"name"`
-	Count int `request:"path" json:"count"`
+	Name  string `path:"name" json:"name"`
+	Count int    `path:"count" json:"count"`
 }
 
 func (p PathTest) Info() request.HttpRouteInfo {
 	panic("implement me")
+}
+
+type ctxKey struct {
+	name string
+}
+
+func (k ctxKey) String() string {
+	return "context value " + k.name
 }
 
 func TestGenerateRequestDecoderHandlesPathVars(t *testing.T) {
@@ -434,12 +442,18 @@ func TestGenerateRequestDecoderHandlesPathVars(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	request, _ := http.NewRequest("GET", "http://localhost/name/count", nil)
-	request = mux.SetURLVars(request, map[string]string{"name":"billy", "count":"121"})
+	request, _ := http.NewRequest("GET", "http://localhost/{name}/{count}", nil)
+	ctx := context.Background()
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("name", "billy")
+	rctx.URLParams.Add("count", "121")
+	ctx = context.WithValue(ctx, chi.RouteCtxKey, rctx)
+	request = request.WithContext(ctx)
+
 	if decoder == nil {
 		t.Fail()
 	} else {
-		val, err := decoder(context.TODO(), request)
+		val, err := decoder(ctx, request)
 		if err != nil {
 			t.Fatalf("basic decoder failure: %s", err.Error())
 		}
@@ -452,9 +466,9 @@ func TestGenerateRequestDecoderHandlesPathVars(t *testing.T) {
 }
 
 type JsonDecoderTest struct {
-	Name string `json:"name"`
-	Count int `json:"count"`
-	Test float32 `json:"test"`
+	Name  string  `json:"name"`
+	Count int     `json:"count"`
+	Test  float32 `json:"test"`
 	gkBoot.JSONBody
 }
 

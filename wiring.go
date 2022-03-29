@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"syscall"
 	
+	"github.com/go-chi/chi/v5"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	httpTransport "github.com/go-kit/kit/transport/http"
-	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/yomiji/gkBoot/config"
@@ -51,22 +51,21 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 	}
 	loggingWrapper = logging.GenerateLoggingWrapper(customConfig.Logger)
 	
-	var router = mux.NewRouter()
+	r := chi.NewRouter()
 	var useMetrics bool
-	var rootPath = "/"
 	
-	if customConfig.RootPath != nil {
-		rootPath = *customConfig.RootPath
-	}
-	router = router.PathPrefix(rootPath).Subrouter()
+	rmain := chi.NewRouter()
 	
 	for _, sr := range serviceRequests {
 		if _, ok := sr.Service.(metrics.Metered); ok {
 			useMetrics = true
 		}
-		router.Methods(string(sr.Request.Info().Method)).
-			Path(sr.Request.Info().Path).
-			Handler(buildHttpRoute(sr, customConfig, customConfig.HttpOpts...))
+		r.Method(
+			string(sr.Request.Info().Method), sr.Request.Info().Path, buildHttpRoute(
+				sr, customConfig,
+				customConfig.HttpOpts...,
+			),
+		)
 	}
 	
 	if useMetrics {
@@ -74,7 +73,8 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 		if customConfig.MetricsPath != nil {
 			metricsPath = *customConfig.MetricsPath
 		}
-		router.Handle(
+		r.Method(
+			http.MethodGet,
 			metricsPath, promhttp.HandlerFor(
 				prometheus.DefaultGatherer,
 				promhttp.HandlerOpts{
@@ -84,6 +84,12 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 			),
 		)
 	}
+	var rootPath = "/"
+	
+	if customConfig.RootPath != nil {
+		rootPath = *customConfig.RootPath
+	}
+	rmain.Mount(rootPath, r)
 	
 	var err error
 	var httpPort = 8080
@@ -94,7 +100,7 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 	portString := makePortString(&httpPort)
 	
 	// apply all global decorators
-	var decoratedRouter http.Handler = router
+	var decoratedRouter http.Handler = rmain
 	for _, decorator := range customConfig.Decorators {
 		decoratedRouter = decorator(decoratedRouter)
 	}
@@ -145,22 +151,19 @@ func MakeHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption
 		customConfig.Logger = logger
 	}
 	loggingWrapper = logging.GenerateLoggingWrapper(customConfig.Logger)
-	var router = mux.NewRouter()
+	var r = chi.NewRouter()
 	var useMetrics bool
-	var rootPath = "/"
-	
-	if customConfig.RootPath != nil {
-		rootPath = *customConfig.RootPath
-	}
-	router = router.PathPrefix(rootPath).Subrouter()
 	
 	for _, sr := range serviceRequests {
 		if _, ok := sr.Service.(metrics.Metered); ok {
 			useMetrics = true
 		}
-		router.Methods(string(sr.Request.Info().Method)).
-			Path(sr.Request.Info().Path).
-			Handler(buildHttpRoute(sr, customConfig, customConfig.HttpOpts...))
+		r.Method(
+			string(sr.Request.Info().Method), sr.Request.Info().Path, buildHttpRoute(
+				sr, customConfig,
+				customConfig.HttpOpts...,
+			),
+		)
 	}
 	
 	if useMetrics {
@@ -168,7 +171,7 @@ func MakeHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption
 		if customConfig.MetricsPath != nil {
 			metricsPath = *customConfig.MetricsPath
 		}
-		router.Handle(
+		r.Handle(
 			metricsPath, promhttp.HandlerFor(
 				prometheus.DefaultGatherer,
 				promhttp.HandlerOpts{
@@ -178,9 +181,18 @@ func MakeHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption
 			),
 		)
 	}
+	var rootPath = "/"
+	
+	if customConfig.RootPath != nil {
+		rootPath = *customConfig.RootPath
+	}
+	
+	rmain := chi.NewRouter()
+	
+	rmain.Mount(rootPath, r)
 	
 	// apply all global decorators
-	var decoratedRouter http.Handler = router
+	var decoratedRouter http.Handler = rmain
 	for _, decorator := range customConfig.Decorators {
 		decoratedRouter = decorator(decoratedRouter)
 	}
@@ -381,7 +393,7 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...httpT
 	}
 	encoder = getCustomEncoder(sr)
 	
-	router := mux.NewRouter()
+	router := chi.NewRouter()
 	router.Handle(
 		req.Info().Path, httpTransport.NewServer(
 			sr.Service.Execute,
