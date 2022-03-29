@@ -12,8 +12,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	
-	"github.com/gorilla/mux"
+
+	"github.com/go-chi/chi/v5"
 	"github.com/yomiji/gkBoot/helpers"
 	"github.com/yomiji/gkBoot/kitDefaults"
 	"github.com/yomiji/gkBoot/request"
@@ -48,16 +48,16 @@ import (
 func GenerateRequestDecoder(obj request.HttpRequest) (kitDefaults.DecodeRequestFunc, error) {
 	reqObjType := reflect.TypeOf(obj)
 	reqObjKind := reqObjType.Kind()
-	
+
 	if reqObjKind == reflect.Ptr {
 		reqObjType = reqObjType.Elem()
 	}
-	
+
 	if reqObjType.Kind() != reflect.Struct {
 		objName := helpers.GetFriendlyRequestName(obj)
 		return nil, fmt.Errorf("request object '%s' must be a Struct type", objName)
 	}
-	
+
 	wv := reflect.New(reqObjType)
 	cv := wv.Interface()
 	if _, ok := cv.(jsonBody); ok {
@@ -69,13 +69,13 @@ func GenerateRequestDecoder(obj request.HttpRequest) (kitDefaults.DecodeRequestF
 			if err != nil {
 				return concreteValue, err
 			}
-			if validator,ok := concreteValue.(request.Validator); ok {
+			if validator, ok := concreteValue.(request.Validator); ok {
 				err = validator.Validate()
 			}
 			return concreteValue, err
 		}, nil
 	}
-	
+
 	return func(ctx context.Context, request2 *http.Request) (req interface{}, err error) {
 		// always get a new blank value on every request
 		workingValue := reflect.New(reqObjType)
@@ -84,24 +84,24 @@ func GenerateRequestDecoder(obj request.HttpRequest) (kitDefaults.DecodeRequestF
 		if err != nil {
 			return concreteValue, err
 		}
-		if validator,ok := concreteValue.(request.Validator); ok {
+		if validator, ok := concreteValue.(request.Validator); ok {
 			err = validator.Validate()
 		}
-		
+
 		return concreteValue, err
 	}, nil
 }
 
 type jsonBody interface {
-	isJasonBody()
+	isJsonBody()
 }
 
 // JSONBody
 //
 // When embedded into a request, flags the request as a JSON body to allow for automatic decoding.
-type JSONBody struct {}
+type JSONBody struct{}
 
-func (J JSONBody) isJasonBody() {}
+func (J JSONBody) isJsonBody() {}
 
 func decodeStructBody(ctx context.Context, r *http.Request, workingValuePtr reflect.Value) error {
 	baseVal := workingValuePtr
@@ -113,7 +113,7 @@ func decodeStructBody(ctx context.Context, r *http.Request, workingValuePtr refl
 		baseVal = baseVal.Elem()
 	}
 	baseValType := baseVal.Type()
-	
+
 	// if no field ops, attempt body reading
 	// begin to set form values using the interface type via json
 	if !baseVal.CanSet() {
@@ -134,9 +134,10 @@ func decodeStructBody(ctx context.Context, r *http.Request, workingValuePtr refl
 		}
 	}
 	baseVal.Set(reflect.ValueOf(body).Elem())
-	
+
 	return nil
 }
+
 // HttpDecoder
 //
 // Objects that implement this interface will pass the defined function to the decoder part of
@@ -241,7 +242,7 @@ func assignValues(ctx context.Context, r *http.Request, workingValuePtr reflect.
 func readTag(field reflect.StructField) (requestPart, alias, jsonAlias string) {
 	var ok bool
 	var tag string
-	
+
 	if requestPart, alias, jsonAlias, ok = fromSwaggestTag(field); ok {
 		return
 	}
@@ -288,13 +289,13 @@ func fromSwaggestTag(field reflect.StructField) (requestPart, alias, jsonAlias s
 					requestPart = structTag
 				}
 			}
-			
+
 			alias = tag
 			jsonAlias = tag
 			ok = true
 		}
 	}
-	
+
 	return
 }
 
@@ -340,7 +341,7 @@ func readRequestCookie(r *http.Request, fieldName string, destType reflect.Type,
 // returns:
 	reflect.Value, error,
 ) {
-	cookie,err := r.Cookie(fieldName)
+	cookie, err := r.Cookie(fieldName)
 	if cookie == nil && isRequired {
 		return reflect.Value{}, fmt.Errorf("required cookie not found or not set: %s", fieldName)
 	} else if cookie == nil {
@@ -375,7 +376,7 @@ func readRequestQuery(r *http.Request, fieldName string, destType reflect.Type, 
 }
 
 func readPathParam(r *http.Request, fieldName string, destType reflect.Type, isRequired bool) (reflect.Value, error) {
-	pathStringValue := mux.Vars(r)[fieldName]
+	pathStringValue := chi.URLParam(r, fieldName)
 	if err := checkRequired(fieldName, pathStringValue, isRequired); err != nil {
 		return reflect.Value{}, err
 	}
