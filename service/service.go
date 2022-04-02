@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"net/http"
 	"reflect"
-	
+
 	httpTransport "github.com/go-kit/kit/transport/http"
+	"github.com/yomiji/gkBoot/request"
 )
 
 // UsingDB
@@ -37,8 +38,8 @@ func (u UsingDB) GetDatabase() *sql.DB {
 // Service
 //
 // Business logic for an endpoint. Execute satisfies the endpoint.Endpoint interface.
-type Service interface {
-	Execute(ctx context.Context, request interface{}) (response interface{}, err error)
+type Service[RequestType ~request.HttpRequest, ResponseType any] interface {
+	Execute(ctx context.Context, req RequestType) (ResponseType, error)
 }
 
 // UpdatableWrappedService
@@ -177,23 +178,25 @@ type ResponseTypes []ResponseType
 //
 // helper method used to generate the proper return value for ExpectedResponses of the OpenAPICompatible interface
 func RegisterResponses(types []ResponseType) MappedResponses {
-	m := make(MappedResponses,0)
-	
+	m := make(MappedResponses, 0)
+
 	for _, typ := range types {
 		m = addResponse(m, typ.Type, typ.Code)
 	}
-	
+
 	return m
 }
 
-func addResponse(responseMap MappedResponses, respType interface{}, statusCode int) MappedResponses{
+func addResponse(responseMap MappedResponses, respType interface{}, statusCode int) MappedResponses {
 	reflectType := reflect.ValueOf(respType).Type()
-	
-	return append(responseMap, RegisteredResponse{
-		ExpectedCode: statusCode,
-		Type:         respType,
-		ReflectType:  reflectType,
-	})
+
+	return append(
+		responseMap, RegisteredResponse{
+			ExpectedCode: statusCode,
+			Type:         respType,
+			ReflectType:  reflectType,
+		},
+	)
 }
 
 // IsResponseValid
@@ -201,12 +204,12 @@ func addResponse(responseMap MappedResponses, respType interface{}, statusCode i
 // check if a service response is valid based on its OpenAPICompatible implementation
 func IsResponseValid(mappedResp MappedResponses, response interface{}, code int) bool {
 	typ := reflect.ValueOf(response).Type()
-	
-	for _,resp := range mappedResp {
-		if resp.ExpectedCode == code && resp.ReflectType.AssignableTo(typ){
+
+	for _, resp := range mappedResp {
+		if resp.ExpectedCode == code && resp.ReflectType.AssignableTo(typ) {
 			return true
 		}
 	}
-	
+
 	return false
 }

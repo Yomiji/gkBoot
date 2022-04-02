@@ -3,7 +3,7 @@ package metrics
 import (
 	"context"
 	"time"
-	
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/metrics"
@@ -23,15 +23,15 @@ func (m MetricsRequest) Info() request.HttpRouteInfo {
 	}
 }
 
-type MetricsService struct {
+type MetricsService[T MetricsRequest, V any] struct {
 	gkBoot.BasicService
 }
 
-func (m MetricsService) Execute(ctx context.Context, request interface{}) (response interface{}, err error) {
+func (m *MetricsService[T, V]) Execute(ctx context.Context, request T) (response V, err error) {
 	return nil, nil
 }
 
-func (m *MetricsService) Metrics() *metrics.MappedMetrics {
+func (m *MetricsService[T, V]) Metrics() *metrics.MappedMetrics {
 	return &metrics.MappedMetrics{
 		Counters: map[string]prometheus.Counter{
 			/* referenced later in Update */
@@ -45,7 +45,7 @@ func (m *MetricsService) Metrics() *metrics.MappedMetrics {
 	}
 }
 
-func (m *MetricsService) UpdateMetrics(
+func (m *MetricsService[T, V]) UpdateMetrics(
 	_ context.Context,
 	_ interface{},
 	_ interface{},
