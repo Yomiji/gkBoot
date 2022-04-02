@@ -1,3 +1,21 @@
+/**
+This file contains code from the go-kit library: github.com/go-kit/kit
+
+The MIT License (MIT)
+
+Copyright (c) 2015 Peter Bourgon
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+*/
+
 package kitDefaults
 
 import (
@@ -38,21 +56,21 @@ type EncodeResponseFunc func(context.Context, http.ResponseWriter, interface{}) 
 func DefaultHttpResponseEncoder(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	if f, ok := response.(Failer); ok && f.Failed() != nil {
 		DefaultHttpErrorEncoder(ctx, f.Failed(), w)
-		
+
 		return nil
 	} else if coder, ok := response.(HttpCoder); ok {
 		code := coder.StatusCode()
-		
+
 		// overwrite default nonsense code
 		if code == 0 {
 			code = 200
 		}
-		
+
 		w.WriteHeader(code)
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	
+
 	return json.NewEncoder(w).Encode(response)
 }
 

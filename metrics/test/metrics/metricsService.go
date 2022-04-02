@@ -3,7 +3,7 @@ package metrics
 import (
 	"context"
 	"time"
-	
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/metrics"
@@ -27,7 +27,7 @@ type MetricsService struct {
 	gkBoot.BasicService
 }
 
-func (m MetricsService) Execute(ctx context.Context, request interface{}) (response interface{}, err error) {
+func (m *MetricsService) Execute(ctx context.Context, request interface{}) (response interface{}, err error) {
 	return nil, nil
 }
 
