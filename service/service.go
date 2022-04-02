@@ -38,8 +38,8 @@ func (u UsingDB) GetDatabase() *sql.DB {
 // Service
 //
 // Business logic for an endpoint. Execute satisfies the endpoint.Endpoint interface.
-type Service[RequestType ~request.HttpRequest, ResponseType any] interface {
-	Execute(ctx context.Context, req RequestType) (ResponseType, error)
+type Service[RequestType ~request.HttpRequest] interface {
+	Execute(ctx context.Context, req RequestType) (any, error)
 }
 
 // UpdatableWrappedService
