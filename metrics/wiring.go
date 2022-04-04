@@ -1,4 +1,4 @@
-package gkBoot
+package metrics
 
 import (
 	"context"
@@ -12,23 +12,16 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/yomiji/gkBoot/config"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/helpers"
 	"github.com/yomiji/gkBoot/kitDefaults"
 	"github.com/yomiji/gkBoot/logging"
+	"github.com/yomiji/gkBoot/metrics/config"
 	"github.com/yomiji/gkBoot/request"
 	"github.com/yomiji/gkBoot/service"
 )
-
-// ServiceRequest
-//
-// The request and service provided in this structure are submitted to the Start functions. The requests, when
-// called from the http client, will route to the associated service to execute the business logic of the
-// Execute method.
-type ServiceRequest struct {
-	Request request.HttpRequest
-	Service service.Service
-}
 
 var loggingWrapper service.Wrapper
 
@@ -36,8 +29,8 @@ var loggingWrapper service.Wrapper
 //
 // Starts the http server for GkBoot. Returns the running http.Server and a blocking function
 // that waits until a signal (syscall.SIGINT, syscall.SIGTERM, syscall.SIGALRM) is sent.
-func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*http.Server, <-chan struct{}) {
-	customConfig := &config.BootConfig{}
+func Start(serviceRequests []gkBoot.ServiceRequest, option ...config.MetricsOption) (*http.Server, <-chan struct{}) {
+	customConfig := &config.MetricsConfig{}
 	for _, opt := range option {
 		opt(customConfig)
 	}
@@ -48,11 +41,14 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 	loggingWrapper = logging.GenerateLoggingWrapper(customConfig.Logger)
 
 	r := chi.NewRouter()
+	var useMetrics bool
 
 	rmain := chi.NewRouter()
 
 	for _, sr := range serviceRequests {
-
+		if _, ok := sr.Service.(Metered); ok {
+			useMetrics = true
+		}
 		r.Method(
 			string(sr.Request.Info().Method), sr.Request.Info().Path, buildHttpRoute(
 				sr, customConfig,
@@ -61,6 +57,22 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 		)
 	}
 
+	if useMetrics {
+		var metricsPath = "/metrics"
+		if customConfig.MetricsPath != nil {
+			metricsPath = *customConfig.MetricsPath
+		}
+		r.Method(
+			http.MethodGet,
+			metricsPath, promhttp.HandlerFor(
+				prometheus.DefaultGatherer,
+				promhttp.HandlerOpts{
+					// Opt into OpenMetrics to support exemplars.
+					EnableOpenMetrics: customConfig.EnableOpenMetrics,
+				},
+			),
+		)
+	}
 	var rootPath = "/"
 
 	if customConfig.RootPath != nil {
@@ -113,13 +125,16 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 //  Convenience method.
 //
 // If the service and blocker of Start are unnecessary, this conveniently does all of that for us.
-func StartServer(serviceRequests []ServiceRequest, option ...config.GkBootOption) {
+func StartServer(serviceRequests []gkBoot.ServiceRequest, option ...config.MetricsOption) {
 	_, blocker := Start(serviceRequests, option...)
 	<-blocker
 }
 
-func MakeHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption) (http.Handler, *config.BootConfig) {
-	customConfig := &config.BootConfig{}
+func MakeHandler(serviceRequests []gkBoot.ServiceRequest, option ...config.MetricsOption) (
+	http.Handler,
+	*config.MetricsConfig,
+) {
+	customConfig := &config.MetricsConfig{}
 	for _, opt := range option {
 		opt(customConfig)
 	}
@@ -129,8 +144,12 @@ func MakeHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption
 	}
 	loggingWrapper = logging.GenerateLoggingWrapper(customConfig.Logger)
 	var r = chi.NewRouter()
+	var useMetrics bool
 
 	for _, sr := range serviceRequests {
+		if _, ok := sr.Service.(Metered); ok {
+			useMetrics = true
+		}
 		r.Method(
 			string(sr.Request.Info().Method), sr.Request.Info().Path, buildHttpRoute(
 				sr, customConfig,
@@ -139,6 +158,21 @@ func MakeHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption
 		)
 	}
 
+	if useMetrics {
+		var metricsPath = "/metrics"
+		if customConfig.MetricsPath != nil {
+			metricsPath = *customConfig.MetricsPath
+		}
+		r.Handle(
+			metricsPath, promhttp.HandlerFor(
+				prometheus.DefaultGatherer,
+				promhttp.HandlerOpts{
+					// Opt into OpenMetrics to support exemplars.
+					EnableOpenMetrics: customConfig.EnableOpenMetrics,
+				},
+			),
+		)
+	}
 	var rootPath = "/"
 
 	if customConfig.RootPath != nil {
@@ -158,7 +192,10 @@ func MakeHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption
 	return decoratedRouter, customConfig
 }
 
-func StartWithHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*http.Server, <-chan struct{}) {
+func StartWithHandler(serviceRequests []gkBoot.ServiceRequest, option ...config.MetricsOption) (
+	*http.Server,
+	<-chan struct{},
+) {
 	var err error
 	handler, config := MakeHandler(serviceRequests, option...)
 
@@ -196,19 +233,19 @@ func StartWithHandler(serviceRequests []ServiceRequest, option ...config.GkBootO
 	return srv, doneChan
 }
 
-func StartServerWithHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption) {
+func StartServerWithHandler(serviceRequests []gkBoot.ServiceRequest, option ...config.MetricsOption) {
 	_, blocker := StartWithHandler(serviceRequests, option...)
 	<-blocker
 }
 
-func getCustomDecoder(sr ServiceRequest) (kitDefaults.DecodeRequestFunc, error) {
-	if customDecoder, ok := sr.Request.(HttpDecoder); ok {
+func getCustomDecoder(sr gkBoot.ServiceRequest) (kitDefaults.DecodeRequestFunc, error) {
+	if customDecoder, ok := sr.Request.(gkBoot.HttpDecoder); ok {
 		return customDecoder.Decode, nil
 	}
-	return GenerateRequestDecoder(sr.Request)
+	return gkBoot.GenerateRequestDecoder(sr.Request)
 }
 
-func getCustomEncoder(sr ServiceRequest) kitDefaults.EncodeResponseFunc {
+func getCustomEncoder(sr gkBoot.ServiceRequest) kitDefaults.EncodeResponseFunc {
 	if customEncoder, ok := sr.Service.(service.HttpEncoder); ok {
 		return customEncoder.Encode
 	}
@@ -217,25 +254,27 @@ func getCustomEncoder(sr ServiceRequest) kitDefaults.EncodeResponseFunc {
 
 type serviceBuilder struct {
 	srv    service.Service
-	config *config.BootConfig
+	config *config.MetricsConfig
 }
 
 // NewServiceBuilder
 //
-// This will wire up a service-only object that can re-use logging wrappers established elsewhere while
+// This will wire up a service-only object that can re-use logging and metrics wrappers established elsewhere while
 // maintaining the REST Request-Service established pattern. The associated Mixin chains must be called to identify
 // which functionality is wired in.
 //
 // Unavailable config options (using the following will not do anything):
 //  config.WithServiceDecorator
 //  config.WithHttpServerOpts
+//  config.WithOpenMetrics
+//  config.WithMetricsPath
 //  config.WithHttpPort
 //  config.WithRootPath
 //  config.WithStrictAPI
-func NewServiceBuilder(srv service.Service, option ...config.GkBootOption) *serviceBuilder {
+func NewServiceBuilder(srv service.Service, option ...config.MetricsOption) *serviceBuilder {
 	nsb := new(serviceBuilder)
 	nsb.srv = srv
-	nsb.config = &config.BootConfig{}
+	nsb.config = &config.MetricsConfig{}
 	for _, opt := range option {
 		opt(nsb.config)
 	}
@@ -280,6 +319,16 @@ func (s *serviceBuilder) MixinDatabase() *serviceBuilder {
 	return s
 }
 
+// MixinMetrics
+//
+// Wrap the metrics around the service
+func (s *serviceBuilder) MixinMetrics() *serviceBuilder {
+	if metered, ok := s.srv.(Metered); ok {
+		s.srv = wrapRootService(metered, WrapServiceMetrics)
+	}
+	return s
+}
+
 // MixinCustomWrapper
 //
 // Wrap the service with the given wrapper.
@@ -293,13 +342,16 @@ func (s *serviceBuilder) MixinCustomWrapper(wrapper service.Wrapper) *serviceBui
 // Build the final service and return the result.
 func (s *serviceBuilder) Build() service.Service {
 	if s.config.StrictOpenAPI {
-		s.srv = wrapRootService(s.srv, APIValidationWrapper)
+		s.srv = wrapRootService(s.srv, gkBoot.APIValidationWrapper)
 	}
 
 	return s.srv
 }
 
-func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...kitDefaults.ServerOption) http.Handler {
+func buildHttpRoute(
+	sr gkBoot.ServiceRequest, bConfig *config.MetricsConfig,
+	opts ...kitDefaults.ServerOption,
+) http.Handler {
 	var decoder kitDefaults.DecodeRequestFunc
 	var encoder kitDefaults.EncodeResponseFunc
 	var err error
@@ -320,6 +372,10 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...kitDe
 		serviceOptions = append(serviceOptions, ros.ServerOptions()...)
 	}
 
+	if metered, ok := sr.Service.(Metered); ok {
+		sr.Service = wrapRootService(metered, WrapServiceMetrics)
+	}
+
 	sr.Service = wrapRootService(sr.Service, loggingWrapper)
 
 	for _, wrapper := range bConfig.ServiceWrappers {
@@ -327,7 +383,7 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...kitDe
 	}
 
 	if bConfig.StrictOpenAPI {
-		sr.Service = wrapRootService(sr.Service, APIValidationWrapper)
+		sr.Service = wrapRootService(sr.Service, gkBoot.APIValidationWrapper)
 	}
 
 	if decoder, err = getCustomDecoder(sr); err != nil {

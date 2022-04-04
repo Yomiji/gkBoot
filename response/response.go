@@ -5,20 +5,52 @@ import (
 	"sync"
 )
 
+// CodedResponse
+// An object implementing this can track the response code from server / client. Complements kitDefaults.StatusCoder
+type CodedResponse interface {
+	NewCode(code int)
+}
+
+// ErredResponse
+// An object implementing this can track the error from the server / client. Complements error interface
+type ErredResponse interface {
+	NewError(code int, format string, vars ...interface{})
+}
+
 // BasicResponse
 //
 // When embedded into a Response object, this wil provide basic functionality
 type BasicResponse struct {
-	code      int
+	code int
+}
+
+// StatusCode
+//
+// Returns the status code set by the NewError method
+func (b BasicResponse) StatusCode() int {
+	return b.code
+}
+
+func (b *BasicResponse) NewCode(code int) {
+	b.code = code
 }
 
 // ErrorResponse
 //
 // When embedded into a Response object, this wil provide error handling functionality
 type ErrorResponse struct {
+	code      int
 	errString string
-	BasicResponse
 }
+
+func (b *ErrorResponse) NewCode(code int) {
+	b.code = code
+}
+
+func (b ErrorResponse) StatusCode() int {
+	return b.code
+}
+
 // Failed
 //
 // Implements kitDefaults.Failer
@@ -35,17 +67,6 @@ func (b ErrorResponse) Failed() error {
 func (b *ErrorResponse) NewError(code int, format string, vars ...interface{}) {
 	b.code = code
 	b.errString = fmt.Sprintf(format, vars...)
-}
-
-func (b *BasicResponse) NewCode(code int) {
-	b.code = code
-}
-
-// StatusCode
-//
-// Returns the status code set by the NewError method
-func (b BasicResponse) StatusCode() int {
-	return b.code
 }
 
 // Error

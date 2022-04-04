@@ -9,10 +9,10 @@ import (
 	"github.com/yomiji/gkBoot/service"
 )
 
-// BootConfig
+// MetricsConfig
 //
 // Used by gkBoot.GkBoot to build the REST service. Each option has a default value.
-type BootConfig struct {
+type MetricsConfig struct {
 	// HttpPort
 	//
 	//  Default value: 8080
@@ -38,6 +38,20 @@ type BootConfig struct {
 	//
 	// A sql database. This is passed to each gkBoot.DatabaseConfigurable gkBoot.Service.
 	Database *sql.DB
+	// MetricsPath
+	//
+	//  Default value: /metrics
+	//
+	// The path which surfaces metrics. This is used during wiring only if one service
+	// implements gkBoot.Metered
+	MetricsPath *string
+	// EnableOpenMetrics
+	//
+	//  Default value: false
+	//
+	// This is a toggle for OpenMetrics used in prometheus library. This is used during
+	// wiring only if one service implements gkBoot.Metered
+	EnableOpenMetrics bool
 	// RootPath
 	//
 	//  Default value: /
@@ -83,16 +97,16 @@ type BootConfig struct {
 	StrictOpenAPI bool
 }
 
-// GkBootOption
+// MetricsOption
 //
 // Option type used during wiring.
-type GkBootOption func(config *BootConfig)
+type MetricsOption func(config *MetricsConfig)
 
 // WithCustomConfig
 //
 // Set the custom config used by each gkBoot.ConfigurableService
-func WithCustomConfig(cfg interface{}) GkBootOption {
-	return func(config *BootConfig) {
+func WithCustomConfig(cfg interface{}) MetricsOption {
+	return func(config *MetricsConfig) {
 		config.CustomConfig = cfg
 	}
 }
@@ -100,8 +114,8 @@ func WithCustomConfig(cfg interface{}) GkBootOption {
 // WithRootPath
 //
 // Set the root path of the http server for the REST endpoint
-func WithRootPath(path string) GkBootOption {
-	return func(config *BootConfig) {
+func WithRootPath(path string) MetricsOption {
+	return func(config *MetricsConfig) {
 		config.RootPath = &path
 	}
 }
@@ -109,17 +123,35 @@ func WithRootPath(path string) GkBootOption {
 // WithHttpPort
 //
 // Set the http port of the server
-func WithHttpPort(port int) GkBootOption {
-	return func(config *BootConfig) {
+func WithHttpPort(port int) MetricsOption {
+	return func(config *MetricsConfig) {
 		config.HttpPort = &port
+	}
+}
+
+// WithMetricsPath
+//
+// Set the path for the prometheus metrics on the http server
+func WithMetricsPath(path string) MetricsOption {
+	return func(config *MetricsConfig) {
+		config.MetricsPath = &path
+	}
+}
+
+// WithOpenMetrics
+//
+// Set the toggle to true for using OpenMetrics with prometheus
+func WithOpenMetrics() MetricsOption {
+	return func(config *MetricsConfig) {
+		config.EnableOpenMetrics = true
 	}
 }
 
 // WithLogger
 //
 // Set a custom gkBoot.Logger that will be used by each service automatically on deferment
-func WithLogger(logger logging.Logger) GkBootOption {
-	return func(config *BootConfig) {
+func WithLogger(logger logging.Logger) MetricsOption {
+	return func(config *MetricsConfig) {
 		config.Logger = logger
 	}
 }
@@ -127,8 +159,8 @@ func WithLogger(logger logging.Logger) GkBootOption {
 // WithDatabase
 //
 // Set a common database used and shared by all services
-func WithDatabase(db *sql.DB) GkBootOption {
-	return func(config *BootConfig) {
+func WithDatabase(db *sql.DB) MetricsOption {
+	return func(config *MetricsConfig) {
 		config.Database = db
 	}
 }
@@ -136,8 +168,8 @@ func WithDatabase(db *sql.DB) GkBootOption {
 // WithHttpServerOpts
 //
 // Set server options used by all services on every request
-func WithHttpServerOpts(opts ...kitDefaults.ServerOption) GkBootOption {
-	return func(config *BootConfig) {
+func WithHttpServerOpts(opts ...kitDefaults.ServerOption) MetricsOption {
+	return func(config *MetricsConfig) {
 		config.HttpOpts = opts
 	}
 }
@@ -147,8 +179,8 @@ func WithHttpServerOpts(opts ...kitDefaults.ServerOption) GkBootOption {
 // Appends the given service.Wrapper to the end of the service wrappers chain. The service wrappers are executed
 // at the tail end of the service construction for each service. It may be necessary to include a type
 // check.
-func WithServiceWrapper(wrapper service.Wrapper) GkBootOption {
-	return func(config *BootConfig) {
+func WithServiceWrapper(wrapper service.Wrapper) MetricsOption {
+	return func(config *MetricsConfig) {
 		config.ServiceWrappers = append(config.ServiceWrappers, wrapper)
 	}
 }
@@ -157,8 +189,8 @@ func WithServiceWrapper(wrapper service.Wrapper) GkBootOption {
 //
 // Uses the given decorator wrap all service requests in a handler chain.
 // Useful for things like global CORS implementation rules. The decorator will wrap all requests.
-func WithServiceDecorator(decorator func(handler http.Handler) http.Handler) GkBootOption {
-	return func(config *BootConfig) {
+func WithServiceDecorator(decorator func(handler http.Handler) http.Handler) MetricsOption {
+	return func(config *MetricsConfig) {
 		config.Decorators = append(config.Decorators, decorator)
 	}
 }
@@ -167,8 +199,8 @@ func WithServiceDecorator(decorator func(handler http.Handler) http.Handler) GkB
 //
 // When used, all services must implement service.OpenAPICompatible interface and all
 // responses from the service must be declared in service.OpenAPICompatible ExpectedResponses function
-func WithStrictAPI() GkBootOption {
-	return func(config *BootConfig) {
+func WithStrictAPI() MetricsOption {
+	return func(config *MetricsConfig) {
 		config.StrictOpenAPI = true
 	}
 }

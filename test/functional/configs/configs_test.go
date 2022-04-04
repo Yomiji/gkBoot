@@ -1,11 +1,9 @@
 package configs
 
 import (
-	"io/ioutil"
 	"net/http"
-	"strings"
 	"testing"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/caching"
 	"github.com/yomiji/gkBoot/config"
@@ -31,19 +29,6 @@ func TestOptions(t *testing.T) {
 			if hitCount != 1 {
 				subT.Fatalf("failed cache check, expected 1 got %d", hitCount)
 			}
-			resp, err := tools.CallAPI(http.MethodGet, "http://localhost:9090/m", nil, nil)
-			if err != nil {
-				subT.Fatalf("failed request: %s", err.Error())
-			}
-			respBody := resp.Body
-			defer respBody.Close()
-			b, err := ioutil.ReadAll(respBody)
-			if err != nil {
-				subT.Fatalf("failed response: %s", err.Error())
-			}
-			if !strings.Contains(string(b), "conf_count 5") {
-				subT.Fatal("failed response, metric not found")
-			}
 		},
 	)
 	tools.Harness(
@@ -51,7 +36,6 @@ func TestOptions(t *testing.T) {
 		[]config.GkBootOption{
 			caching.WithCache(new(tools.Cache)), config.WithDatabase(nil),
 			config.WithCustomConfig(nil), config.WithHttpPort(9090),
-			config.WithMetricsPath("/m"),
 		}, runners, t,
 	)
 }
