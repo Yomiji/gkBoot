@@ -18,9 +18,9 @@ In gkBoot, I tried to capture much of that while still maintaining that
 which makes Go great. Hopefully you like it too.
 
 ## Installation
-*Note: Please use go 1.17 for installation*
+*Note: Please use go 1.18 for installation*
 ```bash
-go get github.com/yomiji/gkBoot@v0.1.0
+go get github.com/yomiji/gkBoot@v1.0.0
 ```
 
 ## Use
@@ -83,13 +83,17 @@ type Response struct {
 
 func (s Service) Execute(ctx context.Context, request interface{}) (response interface{}, err error) {
 	reqObj := request.(*Request)
+	
 	var age string
+	
 	if reqObj.Age == 0 {
 		age = "old"
 	} else {
 		age = strconv.Itoa(reqObj.Age)
 	}
+	
 	greeting := fmt.Sprintf("Hello, %s! You're %s!\n", reqObj.FirstName, age)
+	
 	return Response{Greeting:greeting}, nil
 }
 
@@ -104,12 +108,35 @@ import (
 )
 
 func main() {
-	// start an http service on localhost port 8080
-	gkBoot.StartServer([]gkBoot.ServiceRequest{
-		{
-			Request: new(greeting.Request),
-			Service: new(greeting.Service),
-		},
-	})
+    // start an http service on localhost port 8080
+    gkBoot.StartServer([]gkBoot.ServiceRequest{
+        {
+            Request: new(greeting.Request),
+            Service: new(greeting.Service),
+        },
+    })
+}
+```
+
+In a client:
+```go
+package main
+import (
+	"greeting"
+	"github.com/yomiji/gkBoot"
+)
+
+func main() {
+    Request := &greeting.Request {
+        SecretValue: "Hello!",
+        FirstName: "Simon!",
+        Age: 21,
+    }
+	
+    Response := &greeting.Response{}
+    
+    gkBoot.DoRequest("http://localhost:8080", Request, Response)
+    
+    //Response contains "Hello, Simon! You're 21!"
 }
 ```
