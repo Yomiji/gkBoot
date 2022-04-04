@@ -52,6 +52,7 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 	rmain := chi.NewRouter()
 
 	for _, sr := range serviceRequests {
+
 		r.Method(
 			string(sr.Request.Info().Method), sr.Request.Info().Path, buildHttpRoute(
 				sr, customConfig,
