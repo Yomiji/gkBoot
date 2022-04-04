@@ -5,19 +5,18 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	
+
 	"github.com/yomiji/gkBoot"
-	"github.com/yomiji/gkBoot/test/tools"
 )
 
 func TestMetrics(t *testing.T) {
-	runners := tools.NewTestRunner().Test(
+	runners := NewTestRunner().Test(
 		"Test Metrics Defaults", func(subT *testing.T) {
-			_, err := tools.CallAPI(http.MethodGet, "http://localhost:8080/metricsTest", nil, nil)
+			_, err := CallAPI(http.MethodGet, "http://localhost:8080/metricsTest", nil, nil)
 			if err != nil {
 				subT.Fatalf("failed request: %s", err.Error())
 			}
-			resp, err := tools.CallAPI(http.MethodGet, "http://localhost:8080/metrics", nil, nil)
+			resp, err := CallAPI(http.MethodGet, "http://localhost:8080/metrics", nil, nil)
 			if err != nil {
 				subT.Fatalf("failed request: %s", err.Error())
 			}
@@ -32,7 +31,7 @@ func TestMetrics(t *testing.T) {
 			}
 		},
 	)
-	tools.Harness(
+	Harness(
 		[]gkBoot.ServiceRequest{
 			{new(MetricsRequest), new(MetricsService)},
 		}, nil, runners, t,

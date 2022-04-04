@@ -317,7 +317,7 @@ func returnOperationByTagValue(tagName string) typicalRequestType {
 func checkRequired(fieldName, strVal string, isRequired bool) error {
 	if isRequired {
 		if strVal == "" {
-			return errors.New(fmt.Sprintf("'%s' is missing a required value", fieldName))
+			return fmt.Errorf("'%s' is missing a required value", fieldName)
 		}
 	}
 	return nil
@@ -326,7 +326,7 @@ func checkRequired(fieldName, strVal string, isRequired bool) error {
 func checkCookieRequired(fieldName, strVal string, err error, isRequired bool) error {
 	if isRequired {
 		if strVal == "" {
-			return errors.New(fmt.Sprintf("'%s' cookie is missing a required value: %s", fieldName, err))
+			return fmt.Errorf("'%s' cookie is missing a required value: %s", fieldName, err)
 		}
 	}
 	return nil
@@ -443,7 +443,7 @@ func convertStringToValue(src string, destType reflect.Type, reReference bool) (
 		for _, v := range strs {
 			val, err := convertStringToValue(strings.TrimSpace(v), elem, true)
 			if err != nil {
-				return reflect.Value{}, errors.New(fmt.Sprintf("value '%s' error: %s", v, err))
+				return reflect.Value{}, fmt.Errorf("value '%s' error: %s", v, err)
 			}
 			tempSlice = reflect.Append(tempSlice, val)
 		}
@@ -487,6 +487,20 @@ func convertStringToValue(src string, destType reflect.Type, reReference bool) (
 	case reflect.Complex128:
 		c, err := strconv.ParseComplex(src, 128)
 		return reflect.ValueOf(c), err
+	case reflect.Struct:
+		val := reflect.New(destType)
+		if val.CanInterface() {
+			newP := val.Interface()
+			// Unmarshal to reflected struct pointer
+			err := json.Unmarshal([]byte(src), newP)
+			if err != nil {
+				return val.Elem(), err
+			}
+
+			return reflect.ValueOf(newP).Elem(), err
+		} else {
+			return val.Elem(), fmt.Errorf("value %s unable to be converted to struct of type %s", src, destType)
+		}
 	default:
 		return reflect.Value{}, fmt.Errorf(
 			"gkBoot: do not know how to set type %s for request value %s", destType.Name(), src,
