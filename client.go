@@ -107,11 +107,6 @@ func DoGeneratedRequest[RequestType request.HttpRequest, ResponseType any](
 		return err
 	}
 
-	var temp interface{} = responseObj
-	if statusCoder, ok := temp.(response.CodedResponse); ok {
-		statusCoder.NewCode(resp.StatusCode)
-	}
-
 	defer resp.Body.Close()
 
 	var body []byte
@@ -120,17 +115,34 @@ func DoGeneratedRequest[RequestType request.HttpRequest, ResponseType any](
 		return fmt.Errorf("unable to parse response body for %s due to %s", clientRequest.Info().Name, err)
 	}
 
-	if reflect.TypeOf(responseObj).Kind() == reflect.Ptr {
-		err = json.Unmarshal(body, responseObj)
-		if err != nil {
-			return fmt.Errorf("unable to decode response body for %s due to %s", clientRequest.Info().Name, err)
+	// if the response object is nil, only non-200 indicates error
+	if responseObj == nil {
+		if resp.StatusCode != 200 {
+			errorObj := struct {
+				response.ErrorResponse
+			}{}
+			errorObj.NewError(resp.StatusCode, http.StatusText(resp.StatusCode), "body", body)
+
+			return errorObj
+		}
+
+		return nil
+	}
+
+	var temp interface{} = responseObj
+	if statusCoder, ok := temp.(response.CodedResponse); ok {
+		statusCoder.NewCode(resp.StatusCode)
+	}
+
+	if erredResponse, ok := temp.(response.ErredResponse); ok {
+		if resp.StatusCode != http.StatusOK {
+			erredResponse.NewError(resp.StatusCode, "from response: %s", body)
 		}
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		if erredResponse, ok := temp.(response.ErredResponse); ok {
-			erredResponse.NewError(resp.StatusCode, "from response: %s", body)
-		}
+	err = json.Unmarshal(body, responseObj)
+	if err != nil {
+		return fmt.Errorf("unable to decode response body for %s due to %s", clientRequest.Info().Name, err)
 	}
 
 	return nil
