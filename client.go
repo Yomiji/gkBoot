@@ -160,20 +160,23 @@ func assignRequest(r *http.Request, value reflect.Value) error {
 		} else {
 			return fmt.Errorf("request object must be a Struct type for path %s", r.URL.RawPath)
 		}
-
 	}
+
 	// iterate over all the fields in the struct
 	for i := 0; i < baseValType.NumField(); i++ {
 		var err error
+
 		fieldDesc := baseValType.Field(i)
+
 		fieldVal := baseVal.Field(i)
+
 		// if it is a pointer we need to init and get the element that is the concrete val
 		if fieldDesc.Type.Kind() == reflect.Ptr {
 			// traverse pointer set
 			for ; !fieldVal.IsZero() && fieldVal.Type().Kind() == reflect.Ptr; fieldVal = fieldVal.Elem() {
-
 			}
 		}
+
 		requestTag, alias, jsonAlias, encode := readClientTag(fieldDesc)
 
 		urlEncode, _ := strconv.ParseBool(encode)
@@ -228,11 +231,11 @@ func readClientTag(field reflect.StructField) (requestPart, alias, jsonAlias, en
 	var ok bool
 	var tag string
 
-	if requestPart, alias, jsonAlias, ok = fromSwaggestTag(field); ok {
-		return
-	}
 	if tag, ok = field.Tag.Lookup("urlEncode"); ok {
 		encode = tag
+	}
+	if requestPart, alias, jsonAlias, ok = fromSwaggestTag(field); ok {
+		return requestPart, alias, jsonAlias, encode
 	}
 	if tag, ok = field.Tag.Lookup("request"); ok {
 		requestPart = tag
