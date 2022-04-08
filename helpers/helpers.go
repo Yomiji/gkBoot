@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	
+
 	"github.com/yomiji/gkBoot/request"
 	"github.com/yomiji/gkBoot/response"
 )
@@ -25,13 +25,22 @@ const (
 // Gets the friendly request name of an object. If the object does not implement a known type,
 // this function will use reflection to get the objects type name.
 func GetFriendlyRequestName(req interface{}) string {
-	switch v := req.(type) {
-	case request.HttpRequest:
+	t := reflect.TypeOf(req)
+
+	if t == nil {
+		return ""
+	}
+
+	for ; t.Kind() == reflect.Ptr; t = t.Elem() {
+	}
+
+	if v, ok := req.(request.HttpRequest); ok {
+		if v.Info().Name == "" {
+			return t.Name()
+		}
 		return v.Info().Name
 	}
-	
-	t := reflect.TypeOf(req)
-	
+
 	return fmt.Sprintf("%s::%s", t.PkgPath(), t.Name())
 }
 
