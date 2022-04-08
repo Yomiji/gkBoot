@@ -36,7 +36,7 @@ func (g GeneratorService) ExpectedResponses() service.MappedResponses {
 		service.ResponseTypes{
 			{
 				Type: new(GeneratorResponse),
-				Code: 200,
+				Code: "200",
 			},
 		},
 	)

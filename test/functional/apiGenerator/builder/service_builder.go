@@ -2,7 +2,7 @@ package builder
 
 import (
 	"context"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/config"
 	"github.com/yomiji/gkBoot/request"
@@ -38,11 +38,11 @@ func (a AmalgamationService) ExpectedResponses() service.MappedResponses {
 		service.ResponseTypes{
 			{
 				Type: new(AmalgamationResponse),
-				Code: 201,
+				Code: "201",
 			},
 			{
 				Type: new(rest.ErrorResponse),
-				Code: 411,
+				Code: "411",
 			},
 		},
 	)
@@ -63,7 +63,7 @@ func (a AmalgamationService) Execute(_ context.Context, req interface{}) (interf
 			return nil, errType
 		}
 	}
-	
+
 	resp := &AmalgamationResponse{Message: "Success"}
 	return resp, nil
 }

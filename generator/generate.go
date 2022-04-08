@@ -16,6 +16,7 @@ var t = `
 import (
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/request"
+	"github.com/yomiji/gkBoot/response"
 	"github.com/yomiji/gkBoot/service"
 )
 
@@ -37,27 +38,28 @@ func (g {{.OperationId}}) Info() request.HttpRouteInfo {
 type {{.OperationId}}Service struct {
 	gkBoot.BasicService
 }
-
-{{range .Spec.Responses}}
-type {{
+{{$operationId := .OperationId}}{{range $key, $elem := .Spec.Responses}}
+type {{$operationId}}{{$key}} struct {
+	response.BasicResponse
+}
 {{end}}
 func (g {{.OperationId}}Service) ExpectedResponses() service.MappedResponses {
 	return service.RegisterResponses(
 		service.ResponseTypes{
-			{{range .Spec.Responses}}
+			{{- $operationId := .OperationId}}{{range $key, $elem := .Spec.Responses}}
 			{
-				Type: {{if .Ref}}{{end}}
-			}
-			{{end}}
+				Type: {{$operationId}}{{$key}}
+				Code: "{{$key}}"
+			},
+			{{- end}}
 		},
 	)
 }
 `
 
-//TODO: range over response types
-//TODO: fix response names in schema output
-//  ensure schema is same on input to generate go code
-//  responses that do not have any fields are StatusCoders
+var m = `
+func Handler() 
+`
 
 func GetOperations(sr []gkBoot.ServiceRequest) {
 	spec, err := gkBoot.GenerateSpecification(sr, nil)
