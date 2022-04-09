@@ -41,7 +41,7 @@ func GetFriendlyRequestName(req interface{}) string {
 		return v.Info().Name
 	}
 
-	return fmt.Sprintf("%s::%s", t.PkgPath(), t.Name())
+	return fmt.Sprintf("%s", t.Name())
 }
 
 // GetRequestBodyLimit

@@ -8,7 +8,6 @@ import (
 
 	"github.com/deepmap/oapi-codegen/pkg/codegen"
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/yomiji/gkBoot"
 )
 
 //TODO: lowercase package name
@@ -21,10 +20,10 @@ import (
 )
 
 type {{.OperationId}} struct {
-	{{if .PathParams}}{{makeParamLines .PathParams "path"}}{{- end}}
-	{{if .QueryParams}}{{makeParamLines .QueryParams "query"}}{{end -}}
-	{{if .HeaderParams}}{{makeParamLines .HeaderParams "header"}}{{end -}}
-	{{if .CookieParams}}{{makeParamLines .CookieParams "cookie"}}{{- end}}
+	{{if .PathParams}}{{makeParamLines .PathParams "path"}}{{end}}
+	{{if .QueryParams}}{{makeParamLines .QueryParams "query"}}{{end}}
+	{{if .HeaderParams}}{{makeParamLines .HeaderParams "header"}}{{end}}
+	{{if .CookieParams}}{{makeParamLines .CookieParams "cookie"}}{{end}}
 }
 
 func (g {{.OperationId}}) Info() request.HttpRouteInfo {
@@ -38,19 +37,31 @@ func (g {{.OperationId}}) Info() request.HttpRouteInfo {
 type {{.OperationId}}Service struct {
 	gkBoot.BasicService
 }
-{{$operationId := .OperationId}}{{range $key, $elem := .Spec.Responses}}
+{{$operationId := .OperationId}}{{range $key, $elem := .Spec.Responses }}
+{{range $cKey, $cVal := $elem.Value.Content}}
+{{- if ne $cKey "application/json"}}
 type {{$operationId}}{{$key}} struct {
 	response.BasicResponse
 }
-{{end}}
+{{end -}}
+{{end -}}
+{{end -}}
 func (g {{.OperationId}}Service) ExpectedResponses() service.MappedResponses {
 	return service.RegisterResponses(
 		service.ResponseTypes{
 			{{- $operationId := .OperationId}}{{range $key, $elem := .Spec.Responses}}
+			{{- range $cKey, $cVal := $elem.Value.Content}}
+			{{- if ne $cKey "application/json"}}
 			{
 				Type: {{$operationId}}{{$key}}
 				Code: "{{$key}}"
+			}, {{else}}
+			{
+				Type: {{getElemRefName $cVal.Schema.Ref}}
+				Code: "{{$key}}"
 			},
+			{{- end}}
+			{{- end}}
 			{{- end}}
 		},
 	)
@@ -58,15 +69,11 @@ func (g {{.OperationId}}Service) ExpectedResponses() service.MappedResponses {
 `
 
 var m = `
-func Handler() 
+func GkBootHandler() http.Handler {
+}
 `
 
-func GetOperations(sr []gkBoot.ServiceRequest) {
-	spec, err := gkBoot.GenerateSpecification(sr, nil)
-	if err != nil {
-		panic(err)
-	}
-	yaml, _ := spec.Spec.MarshalYAML()
+func GetOperations(yaml []byte) {
 	loader := openapi3.NewLoader()
 
 	data, err := loader.LoadFromData(yaml)
@@ -83,7 +90,7 @@ func GetOperations(sr []gkBoot.ServiceRequest) {
 		panic(err)
 	}
 
-	tpl = tpl.Funcs(template.FuncMap{"makeParamLines": makeParamLines})
+	tpl = tpl.Funcs(template.FuncMap{"makeParamLines": makeParamLines, "getElemRefName": getElemRefName})
 	tpl, err = tpl.Parse(t)
 	if err != nil {
 		panic(err)
@@ -91,6 +98,7 @@ func GetOperations(sr []gkBoot.ServiceRequest) {
 
 	for _, od := range ods {
 		err := tpl.Execute(os.Stdout, od)
+		fmt.Printf("%+v", od.Spec.Responses["200"].Value.Content["application/json"].Schema.Ref)
 		if err != nil {
 			return
 		}
@@ -116,4 +124,10 @@ func makeParamLines(params []codegen.ParameterDefinition, paramType string) stri
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func getElemRefName(elemRef string) string {
+	split := strings.Split(elemRef, "/")
+
+	return split[len(split)-1]
 }
