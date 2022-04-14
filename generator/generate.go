@@ -2,7 +2,6 @@ package generator
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"text/template"
 
@@ -20,10 +19,26 @@ import (
 )
 
 type {{.OperationId}} struct {
-	{{if .PathParams}}{{makeParamLines .PathParams "path"}}{{end}}
-	{{if .QueryParams}}{{makeParamLines .QueryParams "query"}}{{end}}
-	{{if .HeaderParams}}{{makeParamLines .HeaderParams "header"}}{{end}}
-	{{if .CookieParams}}{{makeParamLines .CookieParams "cookie"}}{{end}}
+	{{- if .PathParams}}
+	{{- range $i, $line := makeParamLines .PathParams "path"}}
+	{{$line -}}
+	{{- end}}
+	{{- end}}
+	{{- if .QueryParams}}
+	{{- range $i, $line := makeParamLines .QueryParams "query"}}
+	{{$line -}}
+	{{- end}}
+	{{- end}}
+	{{- if .HeaderParams}}
+	{{- range $i, $line := makeParamLines .HeaderParams "header"}}
+	{{$line -}}
+	{{- end}}
+	{{- end}}
+	{{- if .CookieParams}}
+	{{- range $i, $line := makeParamLines .CookieParams "cookie"}}
+	{{$line -}}
+	{{- end}}
+	{{- end}}
 }
 
 func (g {{.OperationId}}) Info() request.HttpRouteInfo {
@@ -37,30 +52,35 @@ func (g {{.OperationId}}) Info() request.HttpRouteInfo {
 type {{.OperationId}}Service struct {
 	gkBoot.BasicService
 }
-{{$operationId := .OperationId}}{{range $key, $elem := .Spec.Responses }}
-{{range $cKey, $cVal := $elem.Value.Content}}
-{{- if ne $cKey "application/json"}}
+{{$operationId := .OperationId}}{{range $key, $elem := .Spec.Responses}}
+{{- if not $elem.Value.Content}}
 type {{$operationId}}{{$key}} struct {
 	response.BasicResponse
 }
-{{end -}}
-{{end -}}
-{{end -}}
+{{- end}}
+{{- end}}
+{{- range $i, $type := .ResponseTypes}}
+type {{$type.Schema.TypeDecl}} struct {
+	{{- range $i, $line := makePropertyLines $type.Schema.Properties}}
+	{{$line -}}
+	{{- end}}
+}
+{{- end}}
 func (g {{.OperationId}}Service) ExpectedResponses() service.MappedResponses {
 	return service.RegisterResponses(
 		service.ResponseTypes{
-			{{- $operationId := .OperationId}}{{range $key, $elem := .Spec.Responses}}
-			{{- range $cKey, $cVal := $elem.Value.Content}}
-			{{- if ne $cKey "application/json"}}
+			{{range $key, $elem := .Spec.Responses}}
+			{{- if not $elem.Value.Content}}
 			{
 				Type: {{$operationId}}{{$key}}
 				Code: "{{$key}}"
-			}, {{else}}
+			},
+			{{- else if (index $elem.Value.Content "application/json")}}
+			{{- $content := (index $elem.Value.Content "application/json")}}
 			{
-				Type: {{getElemRefName $cVal.Schema.Ref}}
+				Type: {{getElemRefName $content.Schema.Ref}}
 				Code: "{{$key}}"
 			},
-			{{- end}}
 			{{- end}}
 			{{- end}}
 		},
@@ -90,40 +110,86 @@ func GetOperations(yaml []byte) {
 		panic(err)
 	}
 
-	tpl = tpl.Funcs(template.FuncMap{"makeParamLines": makeParamLines, "getElemRefName": getElemRefName})
+	tpl = tpl.Funcs(
+		template.FuncMap{
+			"makeParamLines":    makeParamLines,
+			"makePropertyLines": makePropertyLines,
+			"getElemRefName":    getElemRefName,
+		},
+	)
 	tpl, err = tpl.Parse(t)
 	if err != nil {
 		panic(err)
 	}
 
+	obj := struct {
+		codegen.OperationDefinition
+		ResponseTypes openapi3.Schemas
+	}{}
 	for _, od := range ods {
-		err := tpl.Execute(os.Stdout, od)
-		fmt.Printf("%+v", od.Spec.Responses["200"].Value.Content["application/json"].Schema.Ref)
-		if err != nil {
-			return
+		obj.OperationDefinition = od
+		obj.ResponseTypes = data.Components.Schemas
+		fmt.Println("Properties")
+		for k, v := range obj.ResponseTypes {
+			fmt.Printf("K: %+v\n\tV:%+v\n", k, v.Value.Properties["file"].Value)
 		}
+		//for _, v := range obj.ResponseTypes {
+		//	fmt.Printf("%+v\n", od.TypeDefinitions)
+		//}
+		//err := tpl.Execute(os.Stdout, obj)
+		//if err != nil {
+		//	return
+		//}
 	}
 }
 
-func makeParamLines(params []codegen.ParameterDefinition, paramType string) string {
-	lines := make([]string, 0, len(params))
-	for _, cParam := range params {
-		goType := cParam.Schema.GoType
-		if cParam.Schema.RefType != "" {
-			goType = cParam.Schema.RefType
-		}
+/*
+Data Types
+The data type of a schema is defined by the type keyword, for example, type: string. OpenAPI defines the following basic types:
+string (this includes dates and files)
+number
+integer
+boolean
+array
+object
+*/
 
+func typeToField(gt codegen.Schema, name string, paramType string, pathName string) string {
+	goType := gt.GoType
+	if gt.RefType != "" {
+		goType = gt.RefType
+	}
+	line := fmt.Sprintf("%s %s `%s:\"%s\"", name, goType, paramType, pathName)
+	line += "`"
+
+	return line
+}
+func makeParamLines(params []codegen.ParameterDefinition, paramType string) []string {
+	lines := make([]string, 0, len(params))
+
+	for _, cParam := range params {
 		name := cParam.GoName()
 		pathName := cParam.ParamName
-		param := fmt.Sprintf("%s %s `%s:\"%s\"", name, goType, paramType, pathName)
-		if cParam.Required {
-			param += " required:\"true\""
-		}
-		param += "`"
+		param := typeToField(cParam.Schema, name, paramType, pathName)
+
 		lines = append(lines, param)
 	}
 
-	return strings.Join(lines, "\n")
+	return lines
+}
+
+func makePropertyLines(props []codegen.Property) []string {
+	lines := make([]string, 0, len(props))
+
+	for _, pProp := range props {
+		name := pProp.GoFieldName()
+		pathName := pProp.JsonFieldName
+		param := typeToField(pProp.Schema, name, "json", pathName)
+
+		lines = append(lines, param)
+	}
+
+	return lines
 }
 
 func getElemRefName(elemRef string) string {
