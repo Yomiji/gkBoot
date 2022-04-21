@@ -3,7 +3,6 @@ package gkBoot
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/swaggest/openapi-go/openapi3"
 	"github.com/yomiji/gkBoot/helpers"
@@ -44,9 +43,7 @@ func GenerateSpecification(requests []ServiceRequest, optionalReflector *openapi
 		if srv, ok := request.Service.(service.OpenAPICompatible); ok {
 			for _, response := range srv.ExpectedResponses() {
 				// ignore error, we want 0 for code if uninterpretable
-				code, _ := strconv.Atoi(response.ExpectedCode)
-
-				err = reflector.SetJSONResponse(op, response.Type, code)
+				err = reflector.SetJSONResponse(op, response.Type, response.ExpectedCode)
 
 				if err != nil {
 					return reflector, err
@@ -83,12 +80,7 @@ func (o openApiResponseValidatorService) Execute(ctx context.Context, request in
 	}
 
 	if j, ok2 := response.(kitDefaults.HttpCoder); ok2 {
-		code := strconv.Itoa(j.StatusCode())
-		if j.StatusCode() == 0 {
-			code = "default"
-		}
-
-		if service.IsResponseValid(o.mappedResponses, response, code) {
+		if service.IsResponseValid(o.mappedResponses, response, j.StatusCode()) {
 			return response, err
 		}
 	}

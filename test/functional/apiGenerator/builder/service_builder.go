@@ -38,11 +38,11 @@ func (a AmalgamationService) ExpectedResponses() service.MappedResponses {
 		service.ResponseTypes{
 			{
 				Type: new(AmalgamationResponse),
-				Code: "201",
+				Code: 201,
 			},
 			{
 				Type: new(rest.ErrorResponse),
-				Code: "411",
+				Code: 411,
 			},
 		},
 	)

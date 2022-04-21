@@ -62,11 +62,11 @@ func (t TestService) ExpectedResponses() service.MappedResponses {
 		service.ResponseTypes{
 			{
 				Type: new(TestResponse),
-				Code: "201",
+				Code: 201,
 			},
 			{
 				Type: new(ErrorResponse),
-				Code: "411",
+				Code: 411,
 			},
 		},
 	)

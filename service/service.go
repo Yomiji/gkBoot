@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"net/http"
 	"reflect"
-	"strings"
 
 	"github.com/yomiji/gkBoot/kitDefaults"
 )
@@ -151,7 +150,7 @@ type OpenAPICompatible interface {
 //
 // Each RegisteredResponse is an expected response from the given OpenAPICompatible service.
 type RegisteredResponse struct {
-	ExpectedCode string
+	ExpectedCode int
 	Type         interface{}
 	ReflectType  reflect.Type
 }
@@ -166,7 +165,7 @@ type MappedResponses []RegisteredResponse
 // slimmed down schema used to register service response types
 type ResponseType struct {
 	Type interface{}
-	Code string
+	Code int
 }
 
 // ResponseTypes
@@ -187,7 +186,7 @@ func RegisterResponses(types []ResponseType) MappedResponses {
 	return m
 }
 
-func addResponse(responseMap MappedResponses, respType interface{}, statusCode string) MappedResponses {
+func addResponse(responseMap MappedResponses, respType interface{}, statusCode int) MappedResponses {
 	reflectType := reflect.ValueOf(respType).Type()
 
 	return append(
@@ -202,33 +201,14 @@ func addResponse(responseMap MappedResponses, respType interface{}, statusCode s
 // IsResponseValid
 //
 // check if a service response is valid based on its OpenAPICompatible implementation
-func IsResponseValid(mappedResp MappedResponses, response interface{}, code string) bool {
+func IsResponseValid(mappedResp MappedResponses, response interface{}, code int) bool {
 	typ := reflect.ValueOf(response).Type()
 
 	for _, resp := range mappedResp {
-		if codesMatch(code, resp.ExpectedCode) && resp.ReflectType.AssignableTo(typ) {
+		if resp.ExpectedCode == code && resp.ReflectType.AssignableTo(typ) {
 			return true
 		}
 	}
 
 	return false
-}
-
-func codesMatch(actualCode, schemaCode string) bool {
-	schemaCode = strings.ToLower(schemaCode)
-	if schemaCode == "default" {
-		return true
-	}
-
-	if len(actualCode) != len(schemaCode) {
-		return false
-	}
-
-	for i := range actualCode {
-		if schemaCode[i] != 'x' && actualCode[i] != schemaCode[i] {
-			return false
-		}
-	}
-
-	return true
 }
