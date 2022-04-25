@@ -6,7 +6,7 @@ require (
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/go-kit/kit v0.12.0
 	github.com/prometheus/client_golang v1.12.1
-	github.com/yomiji/gkBoot v0.0.0-00010101000000-000000000000
+	github.com/yomiji/gkBoot v1.0.1
 )
 
 require (
@@ -26,5 +26,3 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-replace github.com/yomiji/gkBoot => ../
