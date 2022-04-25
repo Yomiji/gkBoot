@@ -60,20 +60,20 @@ func (m ManualRequest) Info() request.HttpRouteInfo {
 func BenchmarkManualRequestDecoderMixTypes(b *testing.B) {
 	mReq := new(ManualRequest)
 	decoder := mReq.Decode
-	request, _ := http.NewRequest("GET", "http://localhost", nil)
-	request.Header.Set("Name", "testValue")
-	request.Header.Set("Count-Var", "3")
-	q := request.URL.Query()
+	req, _ := http.NewRequest("GET", "http://localhost", nil)
+	req.Header.Set("Name", "testValue")
+	req.Header.Set("Count-Var", "3")
+	q := req.URL.Query()
 	q.Set("Scores", "18,27")
 	q.Set("tests", "13+4i, 1+3i")
-	request.URL.RawQuery = q.Encode()
+	req.URL.RawQuery = q.Encode()
 	b.ResetTimer()
-	if _, err := decoder(context.TODO(), request); err != nil {
+	if _, err := decoder(context.TODO(), req); err != nil {
 		b.FailNow()
 		return
 	}
 	for i := 0; i < b.N; i++ {
-		decoder(context.TODO(), request)
+		decoder(context.TODO(), req)
 	}
 }
 
@@ -93,17 +93,17 @@ func TestGenerateRequestDecoderMixType(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	request, _ := http.NewRequest("GET", "http://localhost", nil)
-	request.Header.Set("Name", "testValue")
-	request.Header.Set("Count-Var", "3")
-	q := request.URL.Query()
+	req, _ := http.NewRequest("GET", "http://localhost", nil)
+	req.Header.Set("Name", "testValue")
+	req.Header.Set("Count-Var", "3")
+	q := req.URL.Query()
 	q.Set("Scores", "18,27")
 	q.Set("tests", "13+4i, 1+3i")
-	request.URL.RawQuery = q.Encode()
+	req.URL.RawQuery = q.Encode()
 	if decoder == nil {
 		t.Fail()
 	} else {
-		val, err := decoder(context.TODO(), request)
+		val, err := decoder(context.TODO(), req)
 		if err != nil {
 			t.Fatalf("basic decoder failure: %s", err.Error())
 		}
@@ -117,20 +117,20 @@ func TestGenerateRequestDecoderMixType(t *testing.T) {
 
 func BenchmarkGenerateRequestDecoderMixTypes(b *testing.B) {
 	decoder, _ := gkBoot.GenerateRequestDecoder(MixTypeRequest{})
-	request, _ := http.NewRequest("GET", "http://localhost", nil)
-	request.Header.Set("Name", "testValue")
-	request.Header.Set("Count-Var", "3")
-	q := request.URL.Query()
+	req, _ := http.NewRequest("GET", "http://localhost", nil)
+	req.Header.Set("Name", "testValue")
+	req.Header.Set("Count-Var", "3")
+	q := req.URL.Query()
 	q.Set("Scores", "18,27")
 	q.Set("tests", "13+4i, 1+3i")
-	request.URL.RawQuery = q.Encode()
+	req.URL.RawQuery = q.Encode()
 	b.ResetTimer()
-	if _, err := decoder(context.TODO(), request); err != nil {
+	if _, err := decoder(context.TODO(), req); err != nil {
 		b.FailNow()
 		return
 	}
 	for i := 0; i < b.N; i++ {
-		decoder(context.TODO(), request)
+		decoder(context.TODO(), req)
 	}
 }
 
@@ -139,17 +139,17 @@ func TestGenerateRequestDecoderMixedRequestDoesNotDupe(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	request, _ := http.NewRequest("GET", "http://localhost", nil)
-	request.Header.Set("Name", "testValue")
-	request.Header.Set("Count-Var", "3")
-	q := request.URL.Query()
+	req, _ := http.NewRequest("GET", "http://localhost", nil)
+	req.Header.Set("Name", "testValue")
+	req.Header.Set("Count-Var", "3")
+	q := req.URL.Query()
 	q.Set("Scores", "18,27")
 	q.Set("tests", "13+4i, 1+3i")
-	request.URL.RawQuery = q.Encode()
+	req.URL.RawQuery = q.Encode()
 	if decoder == nil {
 		t.Fail()
 	} else {
-		val, err := decoder(context.TODO(), request)
+		val, err := decoder(context.TODO(), req)
 		request2, _ := http.NewRequest("GET", "http://localhost", nil)
 		request2.Header.Set("Name", "testValue")
 		request2.Header.Set("Count-Var", "4")
@@ -191,16 +191,16 @@ func TestGenerateRequestDecoderEmbedded(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	request, _ := http.NewRequest("GET", "http://localhost", nil)
-	request.Header.Set("Name", "testValue")
-	request.Header.Set("Count-Flag", "3")
-	q := request.URL.Query()
+	req, _ := http.NewRequest("GET", "http://localhost", nil)
+	req.Header.Set("Name", "testValue")
+	req.Header.Set("Count-Flag", "3")
+	q := req.URL.Query()
 	q.Set("stat", "1345")
-	request.URL.RawQuery = q.Encode()
+	req.URL.RawQuery = q.Encode()
 	if decoder == nil {
 		t.Fail()
 	} else {
-		val, err := decoder(context.TODO(), request)
+		val, err := decoder(context.TODO(), req)
 		if err != nil {
 			t.Fatalf("basic decoder failure: %s", err.Error())
 		}
@@ -231,16 +231,16 @@ func TestGenerateRequestDecoderWorksWithRegularEmbed(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	request, _ := http.NewRequest("GET", "http://localhost", nil)
-	request.Header.Set("Request-Header", "testValue")
-	request.Header.Set("normalInt", "3")
-	q := request.URL.Query()
+	req, _ := http.NewRequest("GET", "http://localhost", nil)
+	req.Header.Set("Request-Header", "testValue")
+	req.Header.Set("normalInt", "3")
+	q := req.URL.Query()
 	q.Set("normalInt", "1345")
-	request.URL.RawQuery = q.Encode()
+	req.URL.RawQuery = q.Encode()
 	if decoder == nil {
 		t.Fail()
 	} else {
-		val, err := decoder(context.TODO(), request)
+		val, err := decoder(context.TODO(), req)
 		if err != nil {
 			t.Fatalf("basic decoder failure: %s", err.Error())
 		}
@@ -271,16 +271,16 @@ func TestGenerateRequestDecoderWorksWithUnexportedReferenceEmbed(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	request, _ := http.NewRequest("GET", "http://localhost", nil)
-	request.Header.Set("Request-Header", "testValue")
-	request.Header.Set("normalInt", "3")
-	q := request.URL.Query()
+	req, _ := http.NewRequest("GET", "http://localhost", nil)
+	req.Header.Set("Request-Header", "testValue")
+	req.Header.Set("normalInt", "3")
+	q := req.URL.Query()
 	q.Set("normalInt", "1345")
-	request.URL.RawQuery = q.Encode()
+	req.URL.RawQuery = q.Encode()
 	if decoder == nil {
 		t.Fail()
 	} else {
-		val, err := decoder(context.TODO(), request)
+		val, err := decoder(context.TODO(), req)
 		if err != nil {
 			t.Fatalf("basic decoder failure: %s", err.Error())
 		}
@@ -311,13 +311,13 @@ func TestGenerateRequestDecoderForm(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	request, _ := http.NewRequest("GET", "http://localhost", nil)
-	request.Header.Set("Header", "testValue")
-	request.Body = io.NopCloser(strings.NewReader("{\"someValue\":\"val\",\"count\":44}"))
+	req, _ := http.NewRequest("GET", "http://localhost", nil)
+	req.Header.Set("Header", "testValue")
+	req.Body = io.NopCloser(strings.NewReader("{\"someValue\":\"val\",\"count\":44}"))
 	if decoder == nil {
 		t.Fail()
 	} else {
-		val, err := decoder(context.TODO(), request)
+		val, err := decoder(context.TODO(), req)
 		if err != nil {
 			t.Fatalf("basic decoder failure: %s", err.Error())
 		}
@@ -332,13 +332,13 @@ func TestGenerateRequestDecoderForm(t *testing.T) {
 func BenchmarkGenerateRequestDecoderForm(b *testing.B) {
 	decoder, _ := gkBoot.GenerateRequestDecoder(new(FormTestObject))
 
-	request, _ := http.NewRequest("GET", "http://localhost", nil)
-	request.Header.Set("Header", "testValue")
-	request.Body = io.NopCloser(strings.NewReader("{\"someValue\":\"val\",\"count\":44}"))
+	req, _ := http.NewRequest("GET", "http://localhost", nil)
+	req.Header.Set("Header", "testValue")
+	req.Body = io.NopCloser(strings.NewReader("{\"someValue\":\"val\",\"count\":44}"))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		decoder(context.TODO(), request)
+		decoder(context.TODO(), req)
 	}
 }
 
@@ -355,12 +355,12 @@ func TestGenerateRequestDecoderRequiredFieldsNotFound(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	request, _ := http.NewRequest("GET", "http://localhost", nil)
-	request.Header.Set("NotTheRightHeader", "testValue")
+	req, _ := http.NewRequest("GET", "http://localhost", nil)
+	req.Header.Set("NotTheRightHeader", "testValue")
 	if decoder == nil {
 		t.Fail()
 	} else {
-		_, err := decoder(context.TODO(), request)
+		_, err := decoder(context.TODO(), req)
 		if err == nil {
 			t.Fatal("did not receive expected error")
 		}
@@ -372,12 +372,12 @@ func TestGenerateRequestDecoderRequiredFieldsFound(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	request, _ := http.NewRequest("GET", "http://localhost", nil)
-	request.Header.Set("TheRightHeader", "true")
+	req, _ := http.NewRequest("GET", "http://localhost", nil)
+	req.Header.Set("TheRightHeader", "true")
 	if decoder == nil {
 		t.Fail()
 	} else {
-		_, err := decoder(context.TODO(), request)
+		_, err := decoder(context.TODO(), req)
 		if err != nil {
 			t.Fatalf("expected to succeed but got: %s", err.Error())
 		}
@@ -400,15 +400,15 @@ func TestGenerateRequestDecoderHandlesPointers(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	request, _ := http.NewRequest("GET", "http://localhost", nil)
-	request.Header.Set("p1", "123")
-	request.Header.Set("p2", "test")
-	request.Header.Set("p3", "12.3, , 34.5")
-	request.Header.Set("p4", "")
+	req, _ := http.NewRequest("GET", "http://localhost", nil)
+	req.Header.Set("p1", "123")
+	req.Header.Set("p2", "test")
+	req.Header.Set("p3", "12.3, , 34.5")
+	req.Header.Set("p4", "")
 	if decoder == nil {
 		t.Fail()
 	} else {
-		val, err := decoder(context.TODO(), request)
+		val, err := decoder(context.TODO(), req)
 		if err != nil {
 			t.Fatalf("basic decoder failure: %s", err.Error())
 		}
@@ -442,18 +442,18 @@ func TestGenerateRequestDecoderHandlesPathVars(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	request, _ := http.NewRequest("GET", "http://localhost/{name}/{count}", nil)
+	req, _ := http.NewRequest("GET", "http://localhost/{name}/{count}", nil)
 	ctx := context.Background()
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("name", "billy")
 	rctx.URLParams.Add("count", "121")
 	ctx = context.WithValue(ctx, chi.RouteCtxKey, rctx)
-	request = request.WithContext(ctx)
+	req = req.WithContext(ctx)
 
 	if decoder == nil {
 		t.Fail()
 	} else {
-		val, err := decoder(ctx, request)
+		val, err := decoder(ctx, req)
 		if err != nil {
 			t.Fatalf("basic decoder failure: %s", err.Error())
 		}
@@ -481,12 +481,12 @@ func TestGenerateJSONBodyDecoder(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	request, _ := http.NewRequest("GET", "http://localhost/name/count", nil)
-	request.Body = io.NopCloser(strings.NewReader("{\"name\":\"val\",\"count\":44,\"test\":21.1}"))
+	req, _ := http.NewRequest("GET", "http://localhost/name/count", nil)
+	req.Body = io.NopCloser(strings.NewReader("{\"name\":\"val\",\"count\":44,\"test\":21.1}"))
 	if decoder == nil {
 		t.Fail()
 	} else {
-		val, err := decoder(context.TODO(), request)
+		val, err := decoder(context.TODO(), req)
 		if err != nil {
 			t.Fatalf("basic decoder failure: %s", err.Error())
 		}

@@ -51,7 +51,7 @@ func TestGenerateClientRequest(t *testing.T) {
 				subT.Fatalf("unexpected err: %s", err)
 			}
 
-			err = gkBoot.DoGeneratedRequest(r, req, resp)
+			err = gkBoot.DoGeneratedRequest(r, resp)
 			if err != nil {
 				subT.Fatalf("unexpected err: %s", err)
 			}

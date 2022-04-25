@@ -95,12 +95,11 @@ func DoRequest[RequestType request.HttpRequest, ResponseType any](
 		return err
 	}
 
-	return DoGeneratedRequest[RequestType, ResponseType](c, clientRequest, responseObj)
+	return DoGeneratedRequest[ResponseType](c, responseObj)
 }
 
-func DoGeneratedRequest[RequestType request.HttpRequest, ResponseType any](
-	r *http.Request,
-	clientRequest RequestType, responseObj *ResponseType,
+func DoGeneratedRequest[ResponseType any](
+	r *http.Request, responseObj *ResponseType,
 ) error {
 	resp, err := http.DefaultClient.Do(r)
 	if err != nil {
@@ -110,9 +109,10 @@ func DoGeneratedRequest[RequestType request.HttpRequest, ResponseType any](
 	defer resp.Body.Close()
 
 	var body []byte
+
 	body, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("unable to parse response body for %s due to %s", clientRequest.Info().Name, err)
+		return fmt.Errorf("unable to parse response body for %s %s due to %s", r.Method, r.URL, err)
 	}
 
 	// if the response object is nil, only non-200 indicates error
@@ -142,11 +142,12 @@ func DoGeneratedRequest[RequestType request.HttpRequest, ResponseType any](
 
 	err = json.Unmarshal(body, responseObj)
 	if err != nil {
-		return fmt.Errorf("unable to decode response body for %s due to %s", clientRequest.Info().Name, err)
+		return fmt.Errorf("unable to decode response body for %s %s due to %s", r.Method, r.URL, err)
 	}
 
 	return nil
 }
+
 func assignRequest(r *http.Request, value reflect.Value) error {
 	baseVal := value
 	baseValType := value.Type()
