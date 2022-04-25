@@ -3,7 +3,7 @@ package wiring
 import (
 	"net/http"
 	"testing"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/config"
 	"github.com/yomiji/gkBoot/request"
@@ -52,11 +52,11 @@ func TestGkBootServiceCapabilities(t *testing.T) {
 	).Test(
 		"Test Builder Service Standalone", func(subT *testing.T) {
 			srv := NewBuilderService(configurationSetting)
-			config, err := srv.Execute(nil, nil)
+			cfg, err := srv.Execute(nil, nil)
 			if err != nil {
 				subT.Fatalf("failure")
 			}
-			if d := config.(ConfigSettings).TestValue1; d != 123 {
+			if d := cfg.(ConfigSettings).TestValue1; d != 123 {
 				subT.Fatalf("failure, expected 5678, got: %d", d)
 			}
 		},
@@ -97,7 +97,9 @@ func TestGkBootServiceCapabilities(t *testing.T) {
 			{new(TestRequest1), new(ConfigService)},
 			{new(DisabledLogRequest), new(DisabledService)},
 		},
-		[]config.GkBootOption{config.WithCustomConfig(configurationSetting),
-			config.WithServiceWrapper(WrapTestedService(t))}, runnersMap, t,
+		[]config.GkBootOption{
+			config.WithCustomConfig(configurationSetting),
+			config.WithServiceWrapper(WrapTestedService(t)),
+		}, runnersMap, t,
 	)
 }

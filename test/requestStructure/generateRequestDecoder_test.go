@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/request"
 )
@@ -24,11 +24,11 @@ func ExampleGenerateRequestDecoder() {
 	if err != nil {
 		panic(err)
 	}
-	request, _ := http.NewRequest("GET", "http://localhost", nil)
-	request.Header.Set("Name", "testValue")
-	request.Header.Set("Slice-Field", "1, 2, 3")
-	request.Header.Set("noOp", "true, false, true")
-	requestObject, _ := decoder(context.TODO(), request)
+	req, _ := http.NewRequest("GET", "http://localhost", nil)
+	req.Header.Set("Name", "testValue")
+	req.Header.Set("Slice-Field", "1, 2, 3")
+	req.Header.Set("noOp", "true, false, true")
+	requestObject, _ := decoder(context.TODO(), req)
 	basicRequest := requestObject.(*BasicRequest)
 	fmt.Printf("Type: %T\n", basicRequest)
 	fmt.Printf("basicRequest.Name: %s\n", basicRequest.Name)
