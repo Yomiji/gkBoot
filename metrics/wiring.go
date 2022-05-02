@@ -14,6 +14,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/helpers"
 	"github.com/yomiji/gkBoot/kitDefaults"
@@ -41,14 +42,10 @@ func Start(serviceRequests []gkBoot.ServiceRequest, option ...config.MetricsOpti
 	loggingWrapper = logging.GenerateLoggingWrapper(customConfig.Logger)
 
 	r := chi.NewRouter()
-	var useMetrics bool
 
 	rmain := chi.NewRouter()
 
 	for _, sr := range serviceRequests {
-		if _, ok := sr.Service.(Metered); ok {
-			useMetrics = true
-		}
 		r.Method(
 			string(sr.Request.Info().Method), sr.Request.Info().Path, buildHttpRoute(
 				sr, customConfig,
@@ -57,22 +54,21 @@ func Start(serviceRequests []gkBoot.ServiceRequest, option ...config.MetricsOpti
 		)
 	}
 
-	if useMetrics {
-		var metricsPath = "/metrics"
-		if customConfig.MetricsPath != nil {
-			metricsPath = *customConfig.MetricsPath
-		}
-		r.Method(
-			http.MethodGet,
-			metricsPath, promhttp.HandlerFor(
-				prometheus.DefaultGatherer,
-				promhttp.HandlerOpts{
-					// Opt into OpenMetrics to support exemplars.
-					EnableOpenMetrics: customConfig.EnableOpenMetrics,
-				},
-			),
-		)
+	var metricsPath = "/metrics"
+	if customConfig.MetricsPath != nil {
+		metricsPath = *customConfig.MetricsPath
 	}
+	r.Method(
+		http.MethodGet,
+		metricsPath, promhttp.HandlerFor(
+			prometheus.DefaultGatherer,
+			promhttp.HandlerOpts{
+				// Opt into OpenMetrics to support exemplars.
+				EnableOpenMetrics: customConfig.EnableOpenMetrics,
+			},
+		),
+	)
+
 	var rootPath = "/"
 
 	if customConfig.RootPath != nil {
@@ -144,12 +140,8 @@ func MakeHandler(serviceRequests []gkBoot.ServiceRequest, option ...config.Metri
 	}
 	loggingWrapper = logging.GenerateLoggingWrapper(customConfig.Logger)
 	var r = chi.NewRouter()
-	var useMetrics bool
 
 	for _, sr := range serviceRequests {
-		if _, ok := sr.Service.(Metered); ok {
-			useMetrics = true
-		}
 		r.Method(
 			string(sr.Request.Info().Method), sr.Request.Info().Path, buildHttpRoute(
 				sr, customConfig,
@@ -158,21 +150,20 @@ func MakeHandler(serviceRequests []gkBoot.ServiceRequest, option ...config.Metri
 		)
 	}
 
-	if useMetrics {
-		var metricsPath = "/metrics"
-		if customConfig.MetricsPath != nil {
-			metricsPath = *customConfig.MetricsPath
-		}
-		r.Handle(
-			metricsPath, promhttp.HandlerFor(
-				prometheus.DefaultGatherer,
-				promhttp.HandlerOpts{
-					// Opt into OpenMetrics to support exemplars.
-					EnableOpenMetrics: customConfig.EnableOpenMetrics,
-				},
-			),
-		)
+	var metricsPath = "/metrics"
+	if customConfig.MetricsPath != nil {
+		metricsPath = *customConfig.MetricsPath
 	}
+	r.Handle(
+		metricsPath, promhttp.HandlerFor(
+			prometheus.DefaultGatherer,
+			promhttp.HandlerOpts{
+				// Opt into OpenMetrics to support exemplars.
+				EnableOpenMetrics: customConfig.EnableOpenMetrics,
+			},
+		),
+	)
+
 	var rootPath = "/"
 
 	if customConfig.RootPath != nil {

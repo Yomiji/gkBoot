@@ -6,7 +6,7 @@ require (
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/go-kit/kit v0.12.0
 	github.com/prometheus/client_golang v1.12.1
-	github.com/yomiji/gkBoot v1.0.1
+	github.com/yomiji/gkBoot v1.0.2
 )
 
 require (
