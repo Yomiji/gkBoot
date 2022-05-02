@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
-	
+
 	"github.com/yomiji/gkBoot/config"
 	"github.com/yomiji/gkBoot/logging"
 	"github.com/yomiji/gkBoot/service"
@@ -36,7 +36,7 @@ type RequestCache interface {
 
 type gkCache struct {
 	cache RequestCache
-	next service.Service
+	next  service.Service
 }
 
 func (g gkCache) GetNext() service.Service {
@@ -60,8 +60,8 @@ func (g gkCache) Execute(ctx context.Context, request interface{}) (response int
 			}
 			_, err = g.cache.Put(ctx, cacheable.CacheKey(), res, ttl)
 			if err != nil {
-				if v,ok := response.(logging.Logger); ok {
-					_ = v.Log("caching", CacheSaveFailed)
+				if v, ok := res.(logging.Logger); ok {
+					_ = v.Log("caching", CacheSaveFailed, "err", err)
 				}
 			}
 			return res, err2
@@ -78,11 +78,19 @@ func (g gkCache) Execute(ctx context.Context, request interface{}) (response int
 // at least CacheableRequest interface
 func WithCache(cache RequestCache) config.GkBootOption {
 	return func(config *config.BootConfig) {
-		config.ServiceWrappers = append(config.ServiceWrappers, func(srv service.Service) service.Service {
-			gkC := new(gkCache)
-			gkC.next = srv
-			gkC.cache = cache
-			return gkC
-		})
+		config.ServiceWrappers = append(config.ServiceWrappers, NewCacheWrapper(cache))
+	}
+}
+
+// NewCacheWrapper
+//
+// Enable caching throughout the app. Cache will only be applied where the requests implement
+// at least CacheableRequest interface. This is a convenience function to create a wrapper.
+func NewCacheWrapper(cache RequestCache) service.Wrapper {
+	return func(srv service.Service) service.Service {
+		gkC := new(gkCache)
+		gkC.next = srv
+		gkC.cache = cache
+		return gkC
 	}
 }
