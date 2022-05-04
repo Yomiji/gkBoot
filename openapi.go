@@ -5,8 +5,10 @@ import (
 	"fmt"
 
 	"github.com/swaggest/openapi-go/openapi3"
+
 	"github.com/yomiji/gkBoot/helpers"
 	"github.com/yomiji/gkBoot/kitDefaults"
+	gkRequest "github.com/yomiji/gkBoot/request"
 	"github.com/yomiji/gkBoot/service"
 )
 
@@ -34,6 +36,15 @@ func GenerateSpecification(requests []ServiceRequest, optionalReflector *openapi
 		}
 
 		op = op.WithID(name)
+
+		if anyThingy, ok := request.Request.(gkRequest.OpenAPIExtended); ok {
+			op = op.WithMapOfAnything(anyThingy.OpenAPIExtensions())
+		}
+
+		if secured, ok := request.Request.(gkRequest.OpenAPISecure); ok {
+			securityList := secured.OpenAPISecurity()
+			op = op.WithSecurity(securityList...)
+		}
 
 		err := reflector.SetRequest(op, request.Request, method)
 		if err != nil {
