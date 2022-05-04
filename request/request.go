@@ -7,12 +7,12 @@ import (
 type Method string
 
 const (
-	GET    Method = "GET"
-	PUT    Method = "PUT"
-	DELETE Method = "DELETE"
-	POST   Method = "POST"
-	PATCH  Method = "PATCH"
-	HEAD   Method = "HEAD"
+	GET     Method = "GET"
+	PUT     Method = "PUT"
+	DELETE  Method = "DELETE"
+	POST    Method = "POST"
+	PATCH   Method = "PATCH"
+	HEAD    Method = "HEAD"
 	OPTIONS Method = "OPTIONS"
 )
 
@@ -21,15 +21,15 @@ type HttpRouteInfo struct {
 	//
 	// The name of the request that is sent to the logging middleware. This MUST be unique
 	// among all other services that are defined.
-	Name        string
+	Name string
 	// Method
 	//
 	// HTTP request Method
-	Method      Method
+	Method Method
 	// Path
 	//  eg. "/path/one" or "v1/path/two"
 	// The relative path to the custom root path provided.
-	Path        string
+	Path string
 	// Description
 	//
 	// A helpful text that describes the service. This will appear in logs.
@@ -62,4 +62,20 @@ type Validator interface {
 // The returned function will be passed the http.Handler associated with the request.
 type Decorator interface {
 	UsingDecorator() func(handler http.Handler) http.Handler
+}
+
+// OpenAPIExtended
+//
+// Provides the ability to attach openAPI extensions to a request object. These extensions will be parsed
+// by the openapi spec generator and added to the operation.
+type OpenAPIExtended interface {
+	OpenAPIExtensions() map[string]interface{}
+}
+
+// OpenAPISecure
+//
+// Provides the ability to attach security extensions to a request object. These extensions will be parsed
+// by the openapi spec generator and added to the operation.
+type OpenAPISecure interface {
+	OpenAPISecurity() []map[string][]string
 }
