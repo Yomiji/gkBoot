@@ -4,12 +4,11 @@ go 1.18
 
 require (
 	github.com/go-chi/chi/v5 v5.0.7
-	github.com/go-kit/kit v0.12.0
+	github.com/go-kit/log v0.2.0
 	github.com/swaggest/openapi-go v0.2.13
 )
 
 require (
-	github.com/go-kit/log v0.2.0 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.0 // indirect

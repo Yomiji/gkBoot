@@ -10,8 +10,9 @@ import (
 	"syscall"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+
 	"github.com/yomiji/gkBoot/config"
 	"github.com/yomiji/gkBoot/helpers"
 	"github.com/yomiji/gkBoot/kitDefaults"
@@ -110,7 +111,7 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 
 // StartServer
 //
-//  Convenience method.
+//	Convenience method.
 //
 // If the service and blocker of Start are unnecessary, this conveniently does all of that for us.
 func StartServer(serviceRequests []ServiceRequest, option ...config.GkBootOption) {
@@ -227,11 +228,12 @@ type serviceBuilder struct {
 // which functionality is wired in.
 //
 // Unavailable config options (using the following will not do anything):
-//  config.WithServiceDecorator
-//  config.WithHttpServerOpts
-//  config.WithHttpPort
-//  config.WithRootPath
-//  config.WithStrictAPI
+//
+//	config.WithServiceDecorator
+//	config.WithHttpServerOpts
+//	config.WithHttpPort
+//	config.WithRootPath
+//	config.WithStrictAPI
 func NewServiceBuilder(srv service.Service, option ...config.GkBootOption) *serviceBuilder {
 	nsb := new(serviceBuilder)
 	nsb.srv = srv
