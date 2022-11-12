@@ -21,7 +21,7 @@ package kitDefaults
 import (
 	"context"
 
-	"github.com/go-kit/kit/log"
+	"github.com/go-kit/log"
 )
 
 // ErrorHandler receives a transport error to be processed for diagnostic purposes.
