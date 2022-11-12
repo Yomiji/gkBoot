@@ -10,8 +10,8 @@ import (
 	"syscall"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -118,7 +118,7 @@ func Start(serviceRequests []gkBoot.ServiceRequest, option ...config.MetricsOpti
 
 // StartServer
 //
-//  Convenience method.
+//	Convenience method.
 //
 // If the service and blocker of Start are unnecessary, this conveniently does all of that for us.
 func StartServer(serviceRequests []gkBoot.ServiceRequest, option ...config.MetricsOption) {
@@ -255,13 +255,14 @@ type serviceBuilder struct {
 // which functionality is wired in.
 //
 // Unavailable config options (using the following will not do anything):
-//  config.WithServiceDecorator
-//  config.WithHttpServerOpts
-//  config.WithOpenMetrics
-//  config.WithMetricsPath
-//  config.WithHttpPort
-//  config.WithRootPath
-//  config.WithStrictAPI
+//
+//	config.WithServiceDecorator
+//	config.WithHttpServerOpts
+//	config.WithOpenMetrics
+//	config.WithMetricsPath
+//	config.WithHttpPort
+//	config.WithRootPath
+//	config.WithStrictAPI
 func NewServiceBuilder(srv service.Service, option ...config.MetricsOption) *serviceBuilder {
 	nsb := new(serviceBuilder)
 	nsb.srv = srv
