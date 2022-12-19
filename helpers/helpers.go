@@ -54,7 +54,18 @@ func GetRequestBodyLimit(ctx context.Context) *int {
 		limitVal := int(limit)
 		return &limitVal
 	}
+
 	return nil
+}
+
+func SetRequestBodyLimit(ctx *context.Context, limit int) {
+	if ctx == nil {
+		return
+	}
+
+	ctxVal := context.WithValue(*ctx, requestBodyLimitKey, contextRequestBodyLimitValue(limit))
+
+	*ctx = ctxVal
 }
 
 // GetCtxHeadersFromContext
