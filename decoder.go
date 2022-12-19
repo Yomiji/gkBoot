@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -30,16 +29,18 @@ import (
 //
 // The 'request' tag itself may be structured thus:
 //
-//	type ConcreteObject struct {
-//	  Value   string           `request:"header"`                     // find in headers with name "Value"
-//	  MyInt   int              `request:"header" alias:"New-Integer"` // "New-Integer" in headers not "MyInt"
-//    MyBool  bool             `request:"query" json:"myBool"`        // "myBool" in the query params of request
-//	  MyFloat float32          `request:"query!"`                     // query param must be present as "MyFloat"
-//	  Body    CustomBodyStruct `request:"form"`                       // json request body as an object (json.Unmarshal)
-//	}
+//		type ConcreteObject struct {
+//		  Value   string           `request:"header"`                     // find in headers with name "Value"
+//		  MyInt   int              `request:"header" alias:"New-Integer"` // "New-Integer" in headers not "MyInt"
+//	   MyBool  bool             `request:"query" json:"myBool"`        // "myBool" in the query params of request
+//		  MyFloat float32          `request:"query!"`                     // query param must be present as "MyFloat"
+//		  Body    CustomBodyStruct `request:"form"`                       // json request body as an object (json.Unmarshal)
+//		}
 //
 // Note that this function will look for the corresponding field values using the following naming hierarchy:
-//  alias -> json -> field name (exported)
+//
+//	alias -> json -> field name (exported)
+//
 // This function will skip over unexported fields
 //
 // The resulting decoder function always returns a pointer to a new instantiation of the 'obj' argument.
@@ -333,12 +334,12 @@ func checkCookieRequired(fieldName, strVal string, err error, isRequired bool) e
 }
 
 type typicalRequestType func(r *http.Request, fieldName string, destType reflect.Type, isRequired bool) (
-// returns:
+	// returns:
 	reflect.Value, error,
 )
 
 func readRequestCookie(r *http.Request, fieldName string, destType reflect.Type, isRequired bool) (
-// returns:
+	// returns:
 	reflect.Value, error,
 ) {
 	cookie, err := r.Cookie(fieldName)
@@ -354,7 +355,7 @@ func readRequestCookie(r *http.Request, fieldName string, destType reflect.Type,
 }
 
 func readRequestHeader(r *http.Request, fieldName string, destType reflect.Type, isRequired bool) (
-// returns:
+	// returns:
 	reflect.Value, error,
 ) {
 	headerStringValue := r.Header.Get(fieldName)
@@ -365,7 +366,7 @@ func readRequestHeader(r *http.Request, fieldName string, destType reflect.Type,
 }
 
 func readRequestQuery(r *http.Request, fieldName string, destType reflect.Type, isRequired bool) (
-// returns:
+	// returns:
 	reflect.Value, error,
 ) {
 	queryStringValue := r.URL.Query().Get(fieldName)
@@ -386,7 +387,7 @@ func readPathParam(r *http.Request, fieldName string, destType reflect.Type, isR
 func readFormBody(r *http.Request, body interface{}, limit int) error {
 	if limit > 0 {
 		reader := io.LimitReader(r.Body, int64(limit))
-		bytes, err := ioutil.ReadAll(bufio.NewReader(reader))
+		bytes, err := io.ReadAll(bufio.NewReader(reader))
 		if err != nil {
 			return err
 		}
@@ -395,7 +396,7 @@ func readFormBody(r *http.Request, body interface{}, limit int) error {
 			return err
 		}
 	} else {
-		bytes, err := ioutil.ReadAll(bufio.NewReader(r.Body))
+		bytes, err := io.ReadAll(bufio.NewReader(r.Body))
 		if err != nil {
 			return err
 		}
