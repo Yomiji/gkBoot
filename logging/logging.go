@@ -3,7 +3,7 @@ package logging
 import (
 	"context"
 	"time"
-	
+
 	"github.com/yomiji/gkBoot/helpers"
 	"github.com/yomiji/gkBoot/kitDefaults"
 	"github.com/yomiji/gkBoot/request"
@@ -46,8 +46,10 @@ func (l loggingWrappedService) GetNext() service.Service {
 	return l.next
 }
 
-func (l loggingWrappedService) Execute(ctx context.Context, req interface{}) (response interface{}, err error) {
-	defer func(start time.Time) {
+func (l loggingWrappedService) Execute(ctx context.Context, req interface{}) (interface{}, error) {
+	var r interface{}
+	var e error
+	defer func(start time.Time, response interface{}, err error) {
 		if l.logger == nil {
 			return
 		}
@@ -60,7 +62,7 @@ func (l loggingWrappedService) Execute(ctx context.Context, req interface{}) (re
 		} else if j, ok := response.(kitDefaults.HttpCoder); ok && j != nil && j.StatusCode() != 0 {
 			code = j.StatusCode()
 		}
-		
+
 		ctxHeaders := helpers.GetCtxHeadersFromContext(ctx)
 		additionalLogs := helpers.GetAdditionalLogs(response)
 		var httpRequestLog []interface{}
@@ -74,16 +76,19 @@ func (l loggingWrappedService) Execute(ctx context.Context, req interface{}) (re
 			"CtxHeaders", ctxHeaders,
 			"Request", req,
 			"RequestType", "HTTP",
-			"Response", response,
+			"Response", r,
 			"AdditionalLogs", additionalLogs,
 			"Code", code,
-			"Error", err,
+			"Error", e,
 			"CallStart", start,
 			"CallEnd", endTime,
 		}
 		l.logger.Log(append(httpRequestLog, loggingElements...)...)
-	}(time.Now().UTC())
-	return l.next.Execute(ctx, req)
+	}(time.Now().UTC(), r, e)
+
+	r, e = l.next.Execute(ctx, req)
+
+	return r, e
 }
 
 // GenerateLoggingWrapper
