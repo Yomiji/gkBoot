@@ -24,7 +24,7 @@ type skipLoggable interface {
 
 // LogSkip
 //
-//  Implements skipLoggable
+//	Implements skipLoggable
 //
 // Embed into services that should skip logging. These services will not be logged at all
 type LogSkip struct{}
@@ -47,9 +47,16 @@ func (l loggingWrappedService) GetNext() service.Service {
 }
 
 func (l loggingWrappedService) Execute(ctx context.Context, req interface{}) (interface{}, error) {
-	var r interface{}
-	var e error
-	defer func(start time.Time, response interface{}, err error) {
+	var response *interface{}
+	var err error
+
+	defer func(start time.Time) {
+		var derefResponse interface{}
+
+		if response != nil {
+			derefResponse = *response
+		}
+
 		if l.logger == nil {
 			return
 		}
@@ -59,12 +66,12 @@ func (l loggingWrappedService) Execute(ctx context.Context, req interface{}) (in
 			code = v.StatusCode()
 		} else if !ok && err != nil {
 			code = 500
-		} else if j, ok := response.(kitDefaults.HttpCoder); ok && j != nil && j.StatusCode() != 0 {
+		} else if j, ok := derefResponse.(kitDefaults.HttpCoder); ok && j != nil && j.StatusCode() != 0 {
 			code = j.StatusCode()
 		}
 
 		ctxHeaders := helpers.GetCtxHeadersFromContext(ctx)
-		additionalLogs := helpers.GetAdditionalLogs(response)
+		additionalLogs := helpers.GetAdditionalLogs(derefResponse)
 		var httpRequestLog []interface{}
 		if httpRequest, ok := req.(request.HttpRequest); req != nil && ok {
 			httpRequestLog = []interface{}{
@@ -76,19 +83,23 @@ func (l loggingWrappedService) Execute(ctx context.Context, req interface{}) (in
 			"CtxHeaders", ctxHeaders,
 			"Request", req,
 			"RequestType", "HTTP",
-			"Response", r,
+			"Response", derefResponse,
 			"AdditionalLogs", additionalLogs,
 			"Code", code,
-			"Error", e,
+			"Error", err,
 			"CallStart", start,
 			"CallEnd", endTime,
 		}
 		l.logger.Log(append(httpRequestLog, loggingElements...)...)
-	}(time.Now().UTC(), r, e)
+	}(time.Now().UTC())
 
-	r, e = l.next.Execute(ctx, req)
+	v, e := l.next.Execute(ctx, req)
 
-	return r, e
+	response = &v
+
+	err = e
+
+	return v, err
 }
 
 // GenerateLoggingWrapper

@@ -355,16 +355,13 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...kitDe
 								)
 							}
 
-							sc := w.Header().Get("Status-Code")
-
 							// if no status code given, use the coder interface or, if missing, use 500
-							if sc == "" {
-								if j, ok := err.(kitDefaults.HttpCoder); ok {
-									w.WriteHeader(j.StatusCode())
-								} else {
-									if _, err := strconv.Atoi(sc); err != nil {
-										w.WriteHeader(http.StatusInternalServerError)
-									}
+							if j, ok := err.(kitDefaults.HttpCoder); ok {
+								w.WriteHeader(j.StatusCode())
+							} else {
+								sc := w.Header().Get("Status-Code")
+								if _, err := strconv.Atoi(sc); err != nil {
+									w.WriteHeader(http.StatusInternalServerError)
 								}
 							}
 						}
