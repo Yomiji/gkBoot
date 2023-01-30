@@ -20,6 +20,10 @@ type SkipClientValidation interface {
 	SkipClientValidation()
 }
 
+type UsingSkipClientValidation struct{}
+
+func (u UsingSkipClientValidation) SkipClientValidation() {}
+
 func GenerateClientRequest(baseUrl string, serviceRequest request.HttpRequest) (*http.Request, error) {
 	if serviceRequest == nil {
 		return nil, fmt.Errorf("nil client not supported")
@@ -130,6 +134,7 @@ func DoGeneratedRequest[ResponseType any](
 	}
 
 	var temp interface{} = responseObj
+
 	if statusCoder, ok := temp.(response.CodedResponse); ok {
 		statusCoder.NewCode(resp.StatusCode)
 	}
@@ -140,12 +145,16 @@ func DoGeneratedRequest[ResponseType any](
 		}
 	}
 
-	err = json.Unmarshal(body, responseObj)
-	if err != nil {
-		return fmt.Errorf("unable to decode response body for %s %s due to %s", r.Method, r.URL, err)
+	if unmarshalAble, ok := temp.(json.Unmarshaler); ok {
+		err = unmarshalAble.UnmarshalJSON(body)
+		if err != nil {
+			return fmt.Errorf("unable to decode response body for %s %s due to %s", r.Method, r.URL, err)
+		}
+
+		return nil
 	}
 
-	return nil
+	return json.Unmarshal(body, responseObj)
 }
 
 func assignRequest(r *http.Request, value reflect.Value) error {

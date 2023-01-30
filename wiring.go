@@ -344,27 +344,18 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...kitDe
 			decoder,
 			encoder,
 			append(
-				serviceOptions, kitDefaults.ServerErrorEncoder(
+				serviceOptions,
+				kitDefaults.ServerErrorEncoder(
 					func(ctx context.Context, err error, w http.ResponseWriter) {
-						if err != nil {
-							if bConfig.Logger != nil {
-								ctxHeaders := helpers.GetCtxHeadersFromContext(ctx)
-								bConfig.Logger.Log(
-									"Request", req.Info(),
-									"RequestType", "HTTP", "Error", err, "CtxHeaders", ctxHeaders,
-								)
-							}
-
-							// if no status code given, use the coder interface or, if missing, use 500
-							if j, ok := err.(kitDefaults.HttpCoder); ok {
-								w.WriteHeader(j.StatusCode())
-							} else {
-								sc := w.Header().Get("Status-Code")
-								if _, err := strconv.Atoi(sc); err != nil {
-									w.WriteHeader(http.StatusInternalServerError)
-								}
-							}
+						if bConfig.Logger != nil {
+							ctxHeaders := helpers.GetCtxHeadersFromContext(ctx)
+							bConfig.Logger.Log(
+								"Request", req.Info(),
+								"RequestType", "HTTP", "Error", err, "CtxHeaders", ctxHeaders,
+							)
 						}
+
+						kitDefaults.DefaultErrorEncoder(ctx, err, w)
 					},
 				),
 			)...,

@@ -16,6 +16,10 @@ type SkipClientValidation interface {
 	SkipClientValidation()
 }
 
+type UsingSkipClientValidation struct{}
+
+func (u UsingSkipClientValidation) SkipClientValidation() {}
+
 type JsonBodyForm interface {
 	isJsonBody()
 }
@@ -147,12 +151,16 @@ func DoGeneratedRequest[ResponseType any](
 		}
 	}
 
-	err = json.Unmarshal(body, responseObj)
-	if err != nil {
-		return fmt.Errorf("unable to decode response body for %s %s due to %s", r.Method, r.URL, err)
+	if unmarshalAble, ok := temp.(json.Unmarshaler); ok {
+		err = unmarshalAble.UnmarshalJSON(body)
+		if err != nil {
+			return fmt.Errorf("unable to decode response body for %s %s due to %s", r.Method, r.URL, err)
+		}
+
+		return nil
 	}
 
-	return nil
+	return json.Unmarshal(body, responseObj)
 }
 
 func assignRequest(r *http.Request, value reflect.Value) error {
