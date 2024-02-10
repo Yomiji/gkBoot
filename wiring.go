@@ -42,10 +42,12 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 	for _, opt := range option {
 		opt(customConfig)
 	}
+
 	if loggingWrapper == nil && customConfig.Logger == nil {
 		logger := log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 		customConfig.Logger = logger
 	}
+
 	loggingWrapper = logging.GenerateLoggingWrapper(customConfig.Logger)
 
 	r := chi.NewRouter()
@@ -53,7 +55,6 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 	rmain := chi.NewRouter()
 
 	for _, sr := range serviceRequests {
-
 		r.Method(
 			string(sr.Request.Info().Method), sr.Request.Info().Path, buildHttpRoute(
 				sr, customConfig,
@@ -124,11 +125,14 @@ func MakeHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption
 	for _, opt := range option {
 		opt(customConfig)
 	}
+
 	if loggingWrapper == nil && customConfig.Logger == nil {
 		logger := log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 		customConfig.Logger = logger
 	}
+
 	loggingWrapper = logging.GenerateLoggingWrapper(customConfig.Logger)
+
 	var r = chi.NewRouter()
 
 	for _, sr := range serviceRequests {
@@ -322,6 +326,12 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...kitDe
 		serviceOptions = append(serviceOptions, ros.ServerOptions()...)
 	}
 
+	encoder = getCustomEncoder(sr)
+
+	if decoder, err = getCustomDecoder(sr); err != nil {
+		_ = bConfig.Logger.Log("err", fmt.Sprintf("decoder generation failed for %s", req.Info().Name))
+	}
+
 	sr.Service = wrapRootService(sr.Service, loggingWrapper)
 
 	for _, wrapper := range bConfig.ServiceWrappers {
@@ -331,11 +341,6 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...kitDe
 	if bConfig.StrictOpenAPI {
 		sr.Service = wrapRootService(sr.Service, APIValidationWrapper)
 	}
-
-	if decoder, err = getCustomDecoder(sr); err != nil {
-		_ = bConfig.Logger.Log("err", fmt.Sprintf("decoder generation failed for %s", req.Info().Name))
-	}
-	encoder = getCustomEncoder(sr)
 
 	router := chi.NewRouter()
 	router.Handle(
