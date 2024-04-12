@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 	"testing"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/request"
 	"github.com/yomiji/gkBoot/response"
@@ -36,7 +36,7 @@ type LoggingService struct {
 func (l LoggingService) Execute(ctx context.Context, request interface{}) (response interface{}, err error) {
 	req := request.(*LoggingRequest)
 	resp := new(LoggingResponse)
-	resp.Log("TestResponse", req.LoggableVal,  req.Info(), "RouteInfo")
+	resp.Log("TestResponse", req.LoggableVal, req.Info(), "RouteInfo")
 	resp.Response = req.LoggableVal
 	return resp, nil
 }

@@ -3,7 +3,7 @@ package cache
 import (
 	"net/http"
 	"testing"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/caching"
 	"github.com/yomiji/gkBoot/config"
@@ -90,5 +90,5 @@ func TestCache(t *testing.T) {
 	)
 	tools.Harness([]gkBoot.ServiceRequest{{new(CacheableRequest), cacheService},
 		{new(NotCacheableRequest), notCacheService}},
-	[]config.GkBootOption{caching.WithCache(new(tools.Cache))}, runners, t)
+		[]config.GkBootOption{caching.WithCache(new(tools.Cache))}, runners, t)
 }

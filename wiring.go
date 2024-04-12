@@ -54,6 +54,9 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 
 	rmain := chi.NewRouter()
 
+	// apply all global decorators
+	rmain.Use(customConfig.Decorators...)
+
 	for _, sr := range serviceRequests {
 		r.Method(
 			string(sr.Request.Info().Method), sr.Request.Info().Path, buildHttpRoute(
@@ -68,26 +71,30 @@ func Start(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*ht
 	if customConfig.RootPath != nil {
 		rootPath = *customConfig.RootPath
 	}
+
 	rmain.Mount(rootPath, r)
 
 	var err error
 	var httpPort = 8080
+
 	if customConfig.HttpPort != nil {
 		httpPort = *customConfig.HttpPort
 	}
 
-	portString := makePortString(&httpPort)
+	portString := makePortString(httpPort)
 
-	// apply all global decorators
-	var decoratedRouter http.Handler = rmain
-	for _, decorator := range customConfig.Decorators {
-		decoratedRouter = decorator(decoratedRouter)
-	}
-	srv := &http.Server{Handler: decoratedRouter, Addr: portString}
+	srv := &http.Server{Handler: rmain, Addr: portString}
 
 	errs := make(chan error)
 	go func(srv *http.Server) {
-		err = srv.ListenAndServe()
+		if customConfig.TLS.IsZero() {
+			err = srv.ListenAndServe()
+		} else {
+			err = srv.ListenAndServeTLS(
+				customConfig.TLS.GetCert(),
+				customConfig.TLS.GetKey(),
+			)
+		}
 		if err != nil {
 			errs <- err
 		}
@@ -135,6 +142,9 @@ func MakeHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption
 
 	var r = chi.NewRouter()
 
+	// apply all global decorators
+	r.Use(customConfig.Decorators...)
+
 	for _, sr := range serviceRequests {
 		r.Method(
 			string(sr.Request.Info().Method), sr.Request.Info().Path, buildHttpRoute(
@@ -154,31 +164,32 @@ func MakeHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption
 
 	rmain.Mount(rootPath, r)
 
-	// apply all global decorators
-	var decoratedRouter http.Handler = rmain
-	for _, decorator := range customConfig.Decorators {
-		decoratedRouter = decorator(decoratedRouter)
-	}
-
-	return decoratedRouter, customConfig
+	return rmain, customConfig
 }
 
 func StartWithHandler(serviceRequests []ServiceRequest, option ...config.GkBootOption) (*http.Server, <-chan struct{}) {
 	var err error
-	handler, config := MakeHandler(serviceRequests, option...)
+	handler, customConfig := MakeHandler(serviceRequests, option...)
 
 	var httpPort = 8080
-	if config.HttpPort != nil {
-		httpPort = *config.HttpPort
+	if customConfig.HttpPort != nil {
+		httpPort = *customConfig.HttpPort
 	}
 
-	portString := makePortString(&httpPort)
+	portString := makePortString(httpPort)
 
 	srv := &http.Server{Handler: handler, Addr: portString}
 
 	errs := make(chan error)
 	go func(srv *http.Server) {
-		err = srv.ListenAndServe()
+		if customConfig.TLS.IsZero() {
+			err = srv.ListenAndServe()
+		} else {
+			err = srv.ListenAndServeTLS(
+				customConfig.TLS.GetCert(),
+				customConfig.TLS.GetKey(),
+			)
+		}
 		if err != nil {
 			errs <- err
 		}
@@ -193,8 +204,8 @@ func StartWithHandler(serviceRequests []ServiceRequest, option ...config.GkBootO
 	doneChan := make(chan struct{})
 	go func() {
 		// blocks until <-errs
-		if config.Logger != nil {
-			level.Error(config.Logger).Log("exit", <-errs)
+		if customConfig.Logger != nil {
+			level.Error(customConfig.Logger).Log("exit", <-errs)
 		}
 		doneChan <- struct{}{}
 	}()
@@ -374,11 +385,8 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...kitDe
 	return decoratedRouter
 }
 
-func makePortString(port *int) string {
-	if port != nil {
-		return ":" + strconv.Itoa(*port)
-	}
-	panic(fmt.Errorf("unknown port or port nil: %+d", port))
+func makePortString(port int) string {
+	return ":" + strconv.Itoa(port)
 }
 
 func wrapRootService(svc service.Service, wrapper service.Wrapper) service.Service {

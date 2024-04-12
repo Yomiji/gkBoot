@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"net"
 	"net/http"
 	"sync"
 	"testing"
 	"time"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/config"
 )
@@ -27,29 +28,79 @@ func NewTestRunner() TestRunners {
 	return make(map[string]func(*testing.T))
 }
 
+func isBusy(port string) bool {
+	var i int
+
+	for i = 30; i > 0; i-- {
+		var err error
+		var l net.Listener
+
+		l, err = net.Listen("tcp", port)
+
+		if err != nil {
+			time.Sleep(100 * time.Millisecond)
+		} else {
+			l.Close()
+			break
+		}
+	}
+
+	if i == 0 {
+		return true
+	}
+
+	return false
+}
+
 func Harness(
-	serviceRequests []gkBoot.ServiceRequest,
-	bootOption []config.GkBootOption,
-	runners TestRunners,
-	t *testing.T,
+		serviceRequests []gkBoot.ServiceRequest,
+		bootOption []config.GkBootOption,
+		runners TestRunners,
+		t *testing.T,
 ) {
-	srv, _ := gkBoot.Start(
+	handler, cfg := gkBoot.MakeHandler(
 		serviceRequests,
 		bootOption...,
 	)
+
+	var port = ":8080"
+	if cfg.HttpPort != nil {
+		port = fmt.Sprintf(":%d", *cfg.HttpPort)
+	}
+
+	srv := &http.Server{
+		Handler: handler,
+		Addr:    port,
+	}
+
 	defer srv.Shutdown(context.Background())
-	
+
+	if isBusy(port) {
+		t.Skip()
+
+		return
+	}
+
+	go func() {
+		err := srv.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("could not start server: %v", err)
+		}
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+
 	for name, test := range runners {
 		t.Run(name, test)
 	}
 }
 
 func CallAPI(
-	method, url string, headers map[string]string, reqBody interface{},
-	cookies ...*http.Cookie,
+		method, url string, headers map[string]string, reqBody interface{},
+		cookies ...*http.Cookie,
 ) (
-	*http.Response,
-	error,
+		*http.Response,
+		error,
 ) {
 	var reader io.Reader
 	if reqBody != nil {
@@ -74,7 +125,7 @@ func CallAPI(
 func ReadResponseBody(response *http.Response, respObj interface{}) error {
 	bodyReader := response.Body
 	defer bodyReader.Close()
-	b, err := ioutil.ReadAll(bodyReader)
+	b, err := io.ReadAll(bodyReader)
 	if response.StatusCode == 200 {
 		if err != nil {
 			return err

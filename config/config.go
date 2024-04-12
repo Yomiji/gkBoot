@@ -9,6 +9,41 @@ import (
 	"github.com/yomiji/gkBoot/service"
 )
 
+// TLSConfig
+//
+// Represents the TLS configuration for the REST service.
+//
+// Fields:
+// - serverCert: The server certificate file path or content.
+// - serverKey: The server key file path or content.
+//
+// Usage Example:
+//
+//	tls := TLSConfig{
+//	  serverCert: "/path/to/server.crt",
+//	  serverKey: "/path/to/server.key",
+//	}
+//
+//	bootConfig := BootConfig{
+//	  TLS: tls,
+//	}
+type TLSConfig struct {
+	serverCert string
+	serverKey  string
+}
+
+func (t TLSConfig) IsZero() bool {
+	return t.serverCert == "" && t.serverKey == ""
+}
+
+func (t TLSConfig) GetCert() string {
+	return t.serverCert
+}
+
+func (t TLSConfig) GetKey() string {
+	return t.serverKey
+}
+
 // BootConfig
 //
 // Used by gkBoot.GkBoot to build the REST service. Each option has a default value.
@@ -81,12 +116,24 @@ type BootConfig struct {
 	// When true, all wired services must implement service.OpenAPICompatible interface and all
 	// responses from the service must be declared in service.OpenAPICompatible ExpectedResponses function
 	StrictOpenAPI bool
+
+	// TLS configures the TLS settings for the REST service.
+	TLS TLSConfig
 }
 
 // GkBootOption
 //
 // Option type used during wiring.
 type GkBootOption func(config *BootConfig)
+
+// WithTLSConfig sets the TLS configuration for the BootConfig.
+// The TLS configuration includes server certificate and key.
+// This option is used by gkBoot to build the REST service with TLS enabled.
+func WithTLSConfig(cert, key string) GkBootOption {
+	return func(config *BootConfig) {
+		config.TLS = TLSConfig{serverCert: cert, serverKey: key}
+	}
+}
 
 // WithCustomConfig
 //

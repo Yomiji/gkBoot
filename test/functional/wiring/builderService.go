@@ -3,7 +3,7 @@ package wiring
 import (
 	"context"
 	"fmt"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/config"
 	"github.com/yomiji/gkBoot/service"

@@ -2,7 +2,7 @@ package builder
 
 import (
 	"testing"
-	
+
 	"github.com/yomiji/gkBoot/test/functional/apiGenerator/rest"
 )
 

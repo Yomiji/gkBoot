@@ -2,13 +2,13 @@ package wiring
 
 import (
 	"context"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/logging"
 	"github.com/yomiji/gkBoot/request"
 )
 
-type DisabledLogRequest struct {}
+type DisabledLogRequest struct{}
 
 func (d DisabledLogRequest) Info() request.HttpRouteInfo {
 	return request.HttpRouteInfo{
@@ -37,5 +37,5 @@ func (s DisabledService) WrapTarget() {
 }
 
 func (s DisabledService) Execute(ctx context.Context, request interface{}) (response interface{}, err error) {
-	return DisabledResponse{ Testvalue: 999}, nil
+	return DisabledResponse{Testvalue: 999}, nil
 }

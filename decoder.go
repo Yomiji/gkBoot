@@ -41,7 +41,7 @@ import (
 //
 //	alias -> json -> field name (exported)
 //
-// This function will skip over unexported fields
+// # This function will skip over unexported fields
 //
 // The resulting decoder function always returns a pointer to a new instantiation of the 'obj' argument.
 //

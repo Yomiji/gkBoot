@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/config"
 	"github.com/yomiji/gkBoot/test/tools"
@@ -13,7 +13,7 @@ import (
 
 func TestGenerator(t *testing.T) {
 	services := []gkBoot.ServiceRequest{{new(TestRequest), new(TestService)}}
-	
+
 	spec, err := gkBoot.GenerateSpecification(services, nil)
 	if err != nil {
 		t.Fatalf("expected success, got %s", err)

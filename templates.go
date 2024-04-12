@@ -2,13 +2,13 @@ package gkBoot
 
 import (
 	"context"
-	
+
 	"github.com/yomiji/gkBoot/service"
 )
 
 // BasicService
 //
-// This is the typical service with no DB attached, with an associated Configuration set by WithCustomConfig
+// # This is the typical service with no DB attached, with an associated Configuration set by WithCustomConfig
 //
 // It is recommended to use config.WithCustomConfig on gkBoot.Start followed by implementing member Execute function
 // of your struct
@@ -22,7 +22,7 @@ func (b BasicService) Execute(ctx context.Context, request interface{}) (respons
 
 // BasicServiceWithDB
 //
-// This is the typical service with custom config and DB
+// # This is the typical service with custom config and DB
 //
 // It is recommended to use config.WithCustomConfig and config.WithDatabase on gkBoot.Start
 // followed by implementing member Execute function of your struct

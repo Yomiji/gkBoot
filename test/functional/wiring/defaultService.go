@@ -3,7 +3,7 @@ package wiring
 import (
 	"context"
 	"net/http"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/request"
 )
@@ -22,8 +22,8 @@ func (t TestRequest1) Info() request.HttpRouteInfo {
 }
 
 type TestResponse struct {
-	TestNumIs int `json:"testNum"`
-	OptionalResponse1 int `json:"optional1"`
+	TestNumIs         int    `json:"testNum"`
+	OptionalResponse1 int    `json:"optional1"`
 	OptionalResponse2 string `json:"optional2"`
 }
 

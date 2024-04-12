@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/request"
 )
 
 type ValidRequest struct {
-	Count int `request:"header" alias:"Count" json:"count"`
+	Count         int    `request:"header" alias:"Count" json:"count"`
 	ValueCategory string `request:"query" json:"valueCat"`
 }
 

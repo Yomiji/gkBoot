@@ -72,9 +72,10 @@ type DatabaseConfigurable interface {
 // Embed this into any Service struct in order to gain the ability to reference
 // the custom configuration object. Suggest creating a shared wrapper function to convert
 // the empty interface to a concrete type.
-//   func ToConfig(service ConfigurableService) *viper.Viper {
-//       return service.GetConfig().(*viper.Viper)
-//   }
+//
+//	func ToConfig(service ConfigurableService) *viper.Viper {
+//	    return service.GetConfig().(*viper.Viper)
+//	}
 type UsingConfig struct {
 	config interface{}
 }
@@ -83,16 +84,17 @@ type UsingConfig struct {
 //
 // Returns the configuration associated with the ConfigurableService.
 // Suggest creating a shared wrapper function to convert the empty interface to a concrete type.
-//   func ToConfig(service ConfigurableService) *viper.Viper {
-//       return service.GetConfig().(*viper.Viper)
-//   }
+//
+//	func ToConfig(service ConfigurableService) *viper.Viper {
+//	    return service.GetConfig().(*viper.Viper)
+//	}
 func (u UsingConfig) GetConfig() interface{} {
 	return u.config
 }
 
 // SetConfig
 //
-// Sets the configuration associated with the ConfigurableService
+// # Sets the configuration associated with the ConfigurableService
 //
 // This may come in handy when using gkBoot.Wrapper delegates in your private business
 // logic. Otherwise, the gkBoot wiring finds this and sets the config automatically.
