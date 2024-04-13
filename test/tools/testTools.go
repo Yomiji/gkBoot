@@ -53,10 +53,10 @@ func isBusy(port string) bool {
 }
 
 func Harness(
-		serviceRequests []gkBoot.ServiceRequest,
-		bootOption []config.GkBootOption,
-		runners TestRunners,
-		t *testing.T,
+	serviceRequests []gkBoot.ServiceRequest,
+	bootOption []config.GkBootOption,
+	runners TestRunners,
+	t *testing.T,
 ) {
 	handler, cfg := gkBoot.MakeHandler(
 		serviceRequests,
@@ -96,11 +96,11 @@ func Harness(
 }
 
 func CallAPI(
-		method, url string, headers map[string]string, reqBody interface{},
-		cookies ...*http.Cookie,
+	method, url string, headers map[string]string, reqBody interface{},
+	cookies ...*http.Cookie,
 ) (
-		*http.Response,
-		error,
+	*http.Response,
+	error,
 ) {
 	var reader io.Reader
 	if reqBody != nil {
