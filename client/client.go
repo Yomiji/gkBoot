@@ -2,7 +2,10 @@ package client
 
 import (
 	"bytes"
+	"context"
+	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,15 +13,90 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	http2 "golang.org/x/net/http2"
 )
 
+var (
+	MalformedRequestErr = errors.New("malformed request")
+	HTTP2GlobalCA       = []*tls.Config{nil}
+)
+
+// SkipClientValidation is an interface that can be implemented by a request object to skip client validation
+// during the generation of an *http.Request object. If a request object implements this interface, the validation
+// step will be bypassed and the request object will not be validated before generating the HTTP request.
+//
+// Example Usage:
+//
+//    type MyRequest struct {
+//        // request fields
+//    }
+//
+//    func (r *MyRequest) Info() request.HttpRouteInfo {
+//        // return HttpRouteInfo
+//    }
+//
+//    func (r *MyRequest) Validate() error {
+//        // return validation error
+//    }
+//
+//    func (r *MyRequest) SkipClientValidation() {
+//        // implement the interface to skip client validation
+//    }
+//
+//    func main() {
+//        request := &MyRequest{}
+//
+//        // Generate *http.Request object
+//        httpRequest, err := GenerateClientRequest(baseUrl, request)
+//        if err != nil {
+//            // Handle error
+//        }
+//        // Use the *http.Request object for making the HTTP request
+//    }
 type SkipClientValidation interface {
 	SkipClientValidation()
 }
 
+// UsingSkipClientValidation is a type that can be used to indicate that client
+// validation should be skipped during the generation of an *http.Request object.
+// If a request object contains a field of type UsingSkipClientValidation and is
+// used as an argument for generating an *http.Request object, the validation step
+// will be bypassed and the request object will not be validated before generating
+// the HTTP request.
 type UsingSkipClientValidation struct{}
 
 func (u UsingSkipClientValidation) SkipClientValidation() {}
+
+// Requester is an interface that defines the Request method for making HTTP requests.
+//
+// The Request method takes a context.Context object as a parameter and returns an *http.Request object
+// and an error. The ctx parameter is used to pass any optional cancellation signals or deadlines to the
+// Request method.
+//
+// The Request method is responsible for creating and returning an *http.Request object that represents
+// the HTTP request to be made. If there is an error while creating the request, the error should be
+// returned.
+//
+// Example Usage:
+//
+//    type MyRequester struct {}
+//
+//    func (r *MyRequester) Request(ctx context.Context) (*http.Request, error) {
+//        // Implement the logic to create and return the *http.Request object
+//    }
+//
+//    func main() {
+//        requester := &MyRequester{}
+//        request, err := requester.Request(context.Background())
+//        if err != nil {
+//            // Handle error
+//        }
+//        // Use the *http.Request object for making the HTTP request
+//    }
+type Requester interface {
+	Request(ctx context.Context) (*http.Request, error)
+}
 
 type JsonBodyForm interface {
 	isJsonBody()
@@ -44,6 +122,27 @@ func GenerateClientRequest(baseUrl string, serviceRequest HttpRequest) (*http.Re
 		}
 	}
 
+	// make base url
+	var srPath = serviceRequest.Info().Path
+	baseUrl = strings.TrimRight(baseUrl, "/")
+	srPath = strings.TrimLeft(srPath, "/")
+	var joinedStr = baseUrl + "/" + srPath
+	u, err := url.Parse(joinedStr)
+	if err != nil {
+		return nil, fmt.Errorf("client generation failed, %s, attempted url: %s", err, joinedStr)
+	}
+
+	// shortcut request generation using a Requester
+	if requester, ok := serviceRequest.(Requester); ok {
+		var r *http.Request
+		r, err = requester.Request(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("client generation failed [%s] %w %w", joinedStr, err, MalformedRequestErr)
+		}
+		r.URL = u
+		return r, nil
+	}
+
 	clientValue := reflect.ValueOf(serviceRequest)
 
 	// Deref one layer of pointer if necessary
@@ -56,22 +155,8 @@ func GenerateClientRequest(baseUrl string, serviceRequest HttpRequest) (*http.Re
 		return nil, fmt.Errorf("non-struct client not supported")
 	}
 
-	// Start parsing the fields into Request objects
-	var srPath = serviceRequest.Info().Path
 	var srMethod = serviceRequest.Info().Method
 	var srName = serviceRequest.Info().Name
-
-	baseUrl = strings.TrimRight(baseUrl, "/")
-
-	srPath = strings.TrimLeft(srPath, "/")
-
-	// generate url appending path
-	var joinedStr = baseUrl + "/" + srPath
-
-	u, err := url.Parse(joinedStr)
-	if err != nil {
-		return nil, fmt.Errorf("client generation failed, %s, attempted url: %s", err, joinedStr)
-	}
 
 	var requestResult *http.Request
 
@@ -97,22 +182,29 @@ func GenerateClientRequest(baseUrl string, serviceRequest HttpRequest) (*http.Re
 }
 
 func DoRequest[RequestType HttpRequest, ResponseType any](
-	baseUrl string,
-	clientRequest RequestType,
-	responseObj *ResponseType,
+		baseUrl string,
+		clientRequest RequestType,
+		responseObj *ResponseType,
+		tlsConfig ...*tls.Config,
 ) error {
 	c, err := GenerateClientRequest(baseUrl, clientRequest)
 	if err != nil {
 		return err
 	}
 
-	return DoGeneratedRequest[ResponseType](c, responseObj)
+	return DoGeneratedRequest[ResponseType](c, responseObj, tlsConfig...)
 }
 
 func DoGeneratedRequest[ResponseType any](
-	r *http.Request, responseObj *ResponseType,
+		r *http.Request, responseObj *ResponseType, tlsConfig ...*tls.Config,
 ) error {
-	resp, err := http.DefaultClient.Do(r)
+	client := http.DefaultClient
+
+	if len(tlsConfig) > 0 {
+		client.Transport = &http2.Transport{TLSClientConfig: tlsConfig[0]}
+	}
+
+	resp, err := client.Do(r)
 	if err != nil {
 		return err
 	}
@@ -368,8 +460,8 @@ func convertSliceToStringValue(value reflect.Value, urlEncode bool) string {
 }
 
 type typicalClientRequestWriter func(
-	r *http.Request, fieldName string, fieldValue reflect.Value, isRequired bool,
-	urlEncode bool,
+		r *http.Request, fieldName string, fieldValue reflect.Value, isRequired bool,
+		urlEncode bool,
 ) error
 
 func returnClientOperationByTagValue(tagName string) typicalClientRequestWriter {
@@ -388,8 +480,8 @@ func returnClientOperationByTagValue(tagName string) typicalClientRequestWriter 
 }
 
 func writeRequestCookie(
-	r *http.Request, fieldName string, fieldValue reflect.Value, isRequired bool,
-	urlEncode bool,
+		r *http.Request, fieldName string, fieldValue reflect.Value, isRequired bool,
+		urlEncode bool,
 ) error {
 	var convertedValue = convertBaseValueToString(fieldValue, urlEncode)
 
@@ -414,8 +506,8 @@ func writeRequestCookie(
 }
 
 func writeRequestHeader(
-	r *http.Request, fieldName string, fieldValue reflect.Value, isRequired bool,
-	urlEncode bool,
+		r *http.Request, fieldName string, fieldValue reflect.Value, isRequired bool,
+		urlEncode bool,
 ) error {
 	var convertedValue = convertBaseValueToString(fieldValue, urlEncode)
 
@@ -435,7 +527,7 @@ func writeRequestHeader(
 }
 
 func writeRequestQueryParam(
-	r *http.Request, fieldName string, fieldValue reflect.Value, isRequired bool, urlEncode bool,
+		r *http.Request, fieldName string, fieldValue reflect.Value, isRequired bool, urlEncode bool,
 ) error {
 	var convertedValue = convertBaseValueToString(fieldValue, false)
 
@@ -476,8 +568,8 @@ func writeRequestBody(r *http.Request, fieldName string, fieldValue reflect.Valu
 }
 
 func writeRequestPath(
-	r *http.Request, fieldName string, fieldValue reflect.Value, isRequired bool,
-	urlEncode bool,
+		r *http.Request, fieldName string, fieldValue reflect.Value, isRequired bool,
+		urlEncode bool,
 ) error {
 	var convertedValue = convertBaseValueToString(fieldValue, urlEncode)
 

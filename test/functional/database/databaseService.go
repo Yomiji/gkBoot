@@ -2,13 +2,12 @@ package database
 
 import (
 	"context"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/request"
 )
 
 type DBRequest struct {
-
 }
 
 func (d DBRequest) Info() request.HttpRouteInfo {

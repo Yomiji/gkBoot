@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
-	
+
 	"github.com/yomiji/gkBoot"
 	"github.com/yomiji/gkBoot/test/tools"
 )
@@ -43,22 +43,21 @@ func TestRestService(t *testing.T) {
 			}
 		},
 	).Test("Omit Name has Err", func(subT *testing.T) {
-			// fist unique api call
-			var httpResponse *http.Response
-			var err error
-			func() {
-				httpResponse, err = tools.CallAPI(
-					http.MethodGet, "http://localhost:8080/test/myPath?cost=123.4", map[string]string{
-					}, nil,
-				)
-				if err != nil {
-					subT.Fatalf("failed request: %s\n", err.Error())
-				}
-			}()
-			if httpResponse.StatusCode == 201 {
-				subT.Fatalf("expected status code != 201")
+		// fist unique api call
+		var httpResponse *http.Response
+		var err error
+		func() {
+			httpResponse, err = tools.CallAPI(
+				http.MethodGet, "http://localhost:8080/test/myPath?cost=123.4", map[string]string{}, nil,
+			)
+			if err != nil {
+				subT.Fatalf("failed request: %s\n", err.Error())
 			}
-		},
+		}()
+		if httpResponse.StatusCode == 201 {
+			subT.Fatalf("expected status code != 201")
+		}
+	},
 	).Test("Omit Cost has Err", func(subT *testing.T) {
 		// fist unique api call
 		var httpResponse *http.Response
@@ -104,8 +103,8 @@ func TestRestService(t *testing.T) {
 				http.MethodGet, "http://localhost:8080/test/myPath?cost=123.4", map[string]string{
 					"Name-Var": "testName",
 				}, nil, &http.Cookie{
-					Name:       "testCookie",
-					Value:      "I'm a test cookie",
+					Name:  "testCookie",
+					Value: "I'm a test cookie",
 				},
 			)
 			if err != nil {
@@ -118,10 +117,10 @@ func TestRestService(t *testing.T) {
 		}
 		logicResponse := new(TestResponse)
 		json.Unmarshal(responseBytes, logicResponse)
-		if logicResponse.CookieVal !=  "I'm a test cookie" {
+		if logicResponse.CookieVal != "I'm a test cookie" {
 			subT.Fatalf("failed, expected  \"I'm a test cookie\", got: %s", logicResponse.CookieVal)
 		}
 	},
 	)
-	tools.Harness([]gkBoot.ServiceRequest{{new(TestRequest), new(TestService)}},nil, runners, t)
+	tools.Harness([]gkBoot.ServiceRequest{{new(TestRequest), new(TestService)}}, nil, runners, t)
 }

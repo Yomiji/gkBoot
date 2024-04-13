@@ -3,13 +3,13 @@ package wiring
 import (
 	"context"
 	"testing"
-	
+
 	"github.com/yomiji/gkBoot/service"
 )
 
 type TestPassService struct {
 	next service.Service
-	t *testing.T
+	t    *testing.T
 }
 
 func (t TestPassService) GetNext() service.Service {
@@ -27,7 +27,7 @@ func (t TestPassService) Execute(ctx context.Context, request interface{}) (resp
 
 func WrapTestedService(t *testing.T) service.Wrapper {
 	return func(srv service.Service) service.Service {
-		if _,ok := srv.(LogWrappedTarget); ok {
+		if _, ok := srv.(LogWrappedTarget); ok {
 			tps := new(TestPassService)
 			tps.t = t
 			tps.next = srv
