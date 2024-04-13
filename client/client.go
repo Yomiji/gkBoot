@@ -132,6 +132,8 @@ func GenerateClientRequest(baseUrl string, serviceRequest HttpRequest) (*http.Re
 		return nil, fmt.Errorf("client generation failed, %s, attempted url: %s", err, joinedStr)
 	}
 
+	var srMethod = serviceRequest.Info().Method
+
 	// shortcut request generation using a Requester
 	if requester, ok := serviceRequest.(Requester); ok {
 		var r *http.Request
@@ -140,6 +142,7 @@ func GenerateClientRequest(baseUrl string, serviceRequest HttpRequest) (*http.Re
 			return nil, fmt.Errorf("client generation failed [%s] %w %w", joinedStr, err, MalformedRequestErr)
 		}
 		r.URL = u
+		r.Method = string(srMethod)
 		return r, nil
 	}
 
@@ -155,7 +158,6 @@ func GenerateClientRequest(baseUrl string, serviceRequest HttpRequest) (*http.Re
 		return nil, fmt.Errorf("non-struct client not supported")
 	}
 
-	var srMethod = serviceRequest.Info().Method
 	var srName = serviceRequest.Info().Name
 
 	var requestResult *http.Request

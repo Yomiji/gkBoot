@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,8 +21,7 @@ import (
 )
 
 var (
-	MalformedRequestErr = errors.New("malformed request")
-	HTTP2GlobalCA       = []*tls.Config{nil}
+	HTTP2GlobalCA = []*tls.Config{nil}
 )
 
 // SkipClientValidation is an interface that can be implemented by a request object to skip client validation
@@ -130,7 +128,7 @@ func GenerateClientRequest(baseUrl string, serviceRequest request.HttpRequest) (
 		var r *http.Request
 		r, err = requester.Request(context.Background())
 		if err != nil {
-			return nil, fmt.Errorf("client generation failed [%s] %w %w", joinedStr, err, MalformedRequestErr)
+			return nil, fmt.Errorf("client generation failed [%s] %w", joinedStr, err)
 		}
 		r.URL = u
 		return r, nil
