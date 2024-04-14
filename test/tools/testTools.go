@@ -31,7 +31,7 @@ func NewTestRunner() TestRunners {
 func isBusy(port string) bool {
 	var i int
 
-	for i = 30; i > 0; i-- {
+	for i = 120; i > 0; i-- {
 		var err error
 		var l net.Listener
 
@@ -73,8 +73,6 @@ func Harness(
 		Addr:    port,
 	}
 
-	defer srv.Shutdown(context.Background())
-
 	if isBusy(port) {
 		t.Skip()
 
@@ -93,6 +91,10 @@ func Harness(
 	for name, test := range runners {
 		t.Run(name, test)
 	}
+
+	srv.Close()
+
+	time.Sleep(50 * time.Millisecond)
 }
 
 func CallAPI(

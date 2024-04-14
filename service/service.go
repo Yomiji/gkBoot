@@ -120,6 +120,10 @@ type HttpEncoder interface {
 	Encode(ctx context.Context, w http.ResponseWriter, response interface{}) error
 }
 
+type HttpErrorEncoder interface {
+	EncodeError(ctx context.Context, err error, w http.ResponseWriter)
+}
+
 // Wrapper
 //
 // These functions are used to wrap your services with new functionality. Be sure to compose the service first or
