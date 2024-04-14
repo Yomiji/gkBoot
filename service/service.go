@@ -55,6 +55,22 @@ type UpdatableWrappedService interface {
 	UpdateNext(nxt Service)
 }
 
+func CheckWrappedForType[T any](srv Service) bool {
+	if srv == nil {
+		return false
+	}
+
+	if _, ok := srv.(T); ok {
+		return true
+	}
+
+	if v, ok := srv.(UpdatableWrappedService); ok {
+		return CheckWrappedForType[T](v.GetNext())
+	}
+
+	return false
+}
+
 // DatabaseConfigurable
 //
 // A service implementing this interface is able to use the database supplied by config.WithDatabase
@@ -118,6 +134,10 @@ type ConfigurableService interface {
 // the go-kit route definition
 type HttpEncoder interface {
 	Encode(ctx context.Context, w http.ResponseWriter, response interface{}) error
+}
+
+type HttpErrorEncoder interface {
+	EncodeError(ctx context.Context, err error, w http.ResponseWriter)
 }
 
 // Wrapper
