@@ -231,6 +231,23 @@ func getCustomEncoder(sr ServiceRequest) kitDefaults.EncodeResponseFunc {
 	return kitDefaults.DefaultHttpResponseEncoder
 }
 
+func getCustomErrorEncoder(logger logging.Logger, sr ServiceRequest) kitDefaults.ErrorEncoder {
+	if customErrEncoder, ok := sr.Service.(service.HttpErrorEncoder); ok {
+		return customErrEncoder.EncodeError
+	}
+	return func(ctx context.Context, err error, w http.ResponseWriter) {
+		if logger != nil {
+			ctxHeaders := helpers.GetCtxHeadersFromContext(ctx)
+			logger.Log(
+				"Request", sr.Request.Info(),
+				"RequestType", "HTTP", "Error", err, "CtxHeaders", ctxHeaders,
+			)
+		}
+
+		kitDefaults.DefaultErrorEncoder(ctx, err, w)
+	}
+}
+
 type serviceBuilder struct {
 	srv    service.Service
 	config *config.BootConfig
@@ -319,6 +336,7 @@ func (s *serviceBuilder) Build() service.Service {
 func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...kitDefaults.ServerOption) http.Handler {
 	var decoder kitDefaults.DecodeRequestFunc
 	var encoder kitDefaults.EncodeResponseFunc
+	var errEncoder kitDefaults.ErrorEncoder
 	var err error
 	var req = sr.Request.(request.HttpRequest)
 
@@ -336,6 +354,8 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...kitDe
 	if ros, ok := sr.Service.(service.OptionsConfigurable); ok {
 		serviceOptions = append(serviceOptions, ros.ServerOptions()...)
 	}
+
+	errEncoder = getCustomErrorEncoder(bConfig.Logger, sr)
 
 	encoder = getCustomEncoder(sr)
 
@@ -362,17 +382,7 @@ func buildHttpRoute(sr ServiceRequest, bConfig *config.BootConfig, opts ...kitDe
 			append(
 				serviceOptions,
 				kitDefaults.ServerErrorEncoder(
-					func(ctx context.Context, err error, w http.ResponseWriter) {
-						if bConfig.Logger != nil {
-							ctxHeaders := helpers.GetCtxHeadersFromContext(ctx)
-							bConfig.Logger.Log(
-								"Request", req.Info(),
-								"RequestType", "HTTP", "Error", err, "CtxHeaders", ctxHeaders,
-							)
-						}
-
-						kitDefaults.DefaultErrorEncoder(ctx, err, w)
-					},
+					errEncoder,
 				),
 			)...,
 		),
