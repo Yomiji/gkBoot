@@ -108,7 +108,7 @@ func (l loggingWrappedService) Execute(ctx context.Context, req interface{}) (in
 // service executes, a log will be generated
 func GenerateLoggingWrapper(logger Logger) service.Wrapper {
 	return func(srv service.Service) service.Service {
-		if _, ok := srv.(skipLoggable); ok {
+		if service.CheckWrappedForType[skipLoggable](srv) {
 			return srv
 		}
 		return &loggingWrappedService{logger, srv}
